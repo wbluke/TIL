@@ -12,9 +12,9 @@
 
 MySQL에서는 `EXPLAIN`이라는 키워드로 실행 계획을 확인할 수 있다.  
 
-> 따라서 통계 정보는 실행 계획에서 상당히 중요한데, 레코드 건수가 많지 않으면 통계 정보가 부정확하여 엉뚱한 실행 계획이 도출될 수 있음을 늘 염두에 두고 있어야 한다. 필요에 따라 `ANALYZE` 명령어로 통계정보를 강제적으로 갱신해야 할 수도 있다.  
+> 따라서 통계 정보는 실행 계획에서 상당히 중요한데, 레코드 건수가 많지 않으면 통계 정보가 부정확하여 엉뚱한 실행 계획이 도출될 수 있음을 늘 염두에 두고 있어야 한다. 필요에 따라 `ANALYZE` 명령어로 통계정보를 강제적으로 갱신해야 할 수도 있다.
 
-- - - -
+---
 
 ## 실행 계획 분석
 
@@ -22,55 +22,74 @@ MySQL에서는 `EXPLAIN`이라는 키워드로 실행 계획을 확인할 수 �
 
 ### id 칼럼
 
+실행계획의 id 칼럼은 각 SELECT 쿼리의 식별자 값이다. 만약 하나의 SELECT 쿼리에서 여러 개의 테이블이 조인된다면 모두 같은 id값이 부여된다.  
+
 ### select_type 칼럼
 
-- SIMPLE : 
-- PRIMARY : 
-- UNION : 
-- DEPENDENT UNION : 
-- SUBQUERY : 
-- DEPENDENT SUBQUERY : 
-- DERIVED : 
-- UNCACHEABLE SUBQUERY : 
+각 SELECT 쿼리가 어떤 타입인지를 보여준다.  
+
+- SIMPLE : UNION이나 서브 쿼리를 사용하지 않는 단순한 SELECT 쿼리다. 쿼리가 아무리 복잡하더라도 실행 계획에서 select_type이 SIMPLE 인 쿼리는 단 하나만 존재한다.
+- PRIMARY : UNION이나 서브 쿼리가 포함된 SELECT 쿼리의 실행 계획에서 가장 바깥쪽의 단위 쿼리를 뜻한다. SIMPLE과 마찬가지로 단 하나만 존재한다.
+- UNION : UNION 결합 시 첫 번째를 제외한 두 번째 이후의 단위 SELECT 쿼리다.
+- DEPENDENT UNION : UNION 시 내부 쿼리가 외부의 값을 참조해서 처리될 때 표시된다.
+- SUBQUERY : FROM절 이외에서 사용되는 서브 쿼리만을 의미한다.
+- DEPENDENT SUBQUERY : 외부 쿼리에 의존적인 서브 쿼리를 의미한다.
+	- select_type에 DEPENDENT 키워드가 있으면 서브 쿼리가 외부 쿼리에 의존적이므로 비효율적인 경우가 많다.
+- DERIVED : 서브 쿼리가 FROM절에 사용된 경우다. 이는 메모리나 디스크에 **임시 테이블**을 생성하는 것을 의미한다.
+	- 따라서 성능 상 비효율적일 가능성이 높다. 서브 쿼리 대신 조인으로 해결할 수 있다면 조인으로 해결해야 한다.
+- UNCACHEABLE SUBQUERY : 원래의 서브 쿼리는 여러 번 읽힐 수 있기 때문에 내부적으로 캐싱이 된다. 하지만 여러가지 이유로 인해 캐싱될 수 없는 상황을 말한다.
 
 ### type 칼럼
 
-- const
-- eq_ref
-- ref
-- fulltext
-- unique_subquery
-- index_subquery
-- range
-- index_merge
-- index
-- all
+각 테이블에 접근하는 방식이다. 쿼리 튜닝 시 인덱스 사용 여부 등을 체크해야 하므로 필수적으로 확인해야 할 중요한 칼럼들 중 하나이다.
+
+- const : PK나 유니크 키 칼럼을 이용하는 WHERE 조건절을 가지고 있고, 이름에서 알 수 있듯이 반드시 1건을 반환하는 쿼리다.
+- eq_ref : 여러 테이블 조인 시, 조인에서 처음 읽은 테이블의 칼럼 값을 그 다음 읽을 테이블의 PK나 유니크 키 칼럼의 검색 조건에 사용하는 경우다. 
+- ref : 동등 조건(Equal)으로 검색하는 경우이다.
+	- 위 세 가지 접근 방법 모두 쿼리 튜닝 시 크게 신경쓰지 않아도 된다.
+- fulltext : MySQL의 전문 검색 인덱스를 사용해 레코드를 읽는 방법이다.
+- unique_subquery : WHERE 조건절에서 사용될 수 있는 `IN (subquery)` 형태의 쿼리이다. unique라는 이름에서 알 수 있듯이 IN절 안의 서브 쿼리에서 중복되지 않은 결과를 반환할 때 쓰인다.
+- index_subquery :  `IN (subquery)`의 서브 쿼리에서 중복된 값이 나올 수 있지만 인덱스로 중복을 제거할 수 있을 때 사용된다.
+- range : `인덱스 레인지 스캔` 형태의 방법이다.
+	- 통상적으로 인덱스 레인지 스캔은 const, ref, range 이 세 가지 접근 방법을 의미한다.
+- index_merge : 2개 이상의 인덱스를 이용해 각각의 검색 결과를 만들어낸 후 병합하는 방식이다. 그닥 효율적이지는 않다.
+- index : 인덱스를 처음부터 끝까지 읽는 `인덱스 풀 스캔`을 의미한다.
+	- 절대 인덱스를 효율적으로 사용하는 방식이 아님에 주의해야 한다.
+- all : 풀 테이블 스캔을 의미한다. 가장 비효율적인 방식이다.
+	- 하지만 InnoDB 스토리지 엔진에서는 대량의 디스크 I/O 유발을 막기 위해 `리드 어헤드`라는 기능으로 한꺼번에 많은 페이지를 읽어들일 수 있다. 잘못 튜닝된 쿼리보다 이 방법이 나을 수도 있다.
+	- 보통의 빠른 응답을 사용자에게 돌려줘야 하는 OLTP 웹 서비스 환경에서는 index와 ALL 방법은 적합하지 않다.
 
 ### possible_keys 칼럼
 
+사용될 법했던 인덱스의 목록이다. 말 그대로 **후보였던 것들**이다. 사용한 인덱스가 아님에 주의하자.
+
 ### key 칼럼
+
+최종 선택된 실행 계획에서 사용하는 인덱스이다.  인덱스를 전혀 사용하지 못하면 NULL로 표기된다.
 
 ### key_len 칼럼
 
+쿼리를 처리하기 위해 다중 칼럼 인덱스에서 몇 개 칼럼까지 사용했는지 바이트 단위로 알려주는 값이다. 예를 들어 CHAR(4) 칼럼과 INTEGER 칼럼의 복합 인덱스에서 앞쪽 CHAR(4) 칼럼만 유효하게 사용했다면, 총 인덱스 키는 16바이트지만 key_len에는 12바이트가 표시된다. (utf8 기준 문자 1개 고정값 3바이트)
+
 ### Extra 칼럼
 
-- Distinct
-- impossible HAVING
-- impossible WHERE
-- Not exists
-- Using filesort
-- Using index(커버링 인덱스)
-- Using index for group-by
-- Using join buffer 
-- Using temporary
-- Using where
-- Using where with pushed condition
+- Distinct : 
+- impossible HAVING : 
+- impossible WHERE : 
+- Not exists : 
+- Using filesort : 
+- Using index(커버링 인덱스) : 
+- Using index for group-by : 
+- Using join buffer  : 
+- Using temporary : 
+- Using where : 
+- Using where with pushed condition : 
 
 ### EXPLAIN EXTENDED (Filtered 칼럼)
 
 ### EXPLAIN PARTITIONS (Partitions 칼럼)
 
-- - - -
+---
 
 ## MySQL의 주요 처리 방식
 
@@ -83,6 +102,25 @@ MySQL에서는 `EXPLAIN`이라는 키워드로 실행 계획을 확인할 수 �
 ### DISTINCT 처리
 
 ### 임시 테이블 (Using temporary)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
