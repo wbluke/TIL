@@ -101,7 +101,7 @@ log(map[0]); // undefined
 
 #### 이터러블/이터레이터 프로토콜
 
-- 이터러블 : 이터레이터를 리턴하는 [Symbol.iterator]() 를 가진 값
+- 이터러블 : 이터레이터를 리턴하는 `[Symbol.iterator]()` 를 가진 값
 - 이터레이터 : { value, done } 객체를 리턴하는 next() 를 가진 값
 - 이터러블/이터레이터 프로토콜 : 이터러블을 for...of, 전개 연산자 등과 함께 동작하도록 한 규약
 
@@ -117,7 +117,7 @@ iterator.next() // {value: undefined, done: true}
 
 map.keys() 는 key들만 모아놓은 이터레이터를 반환하는 함수이다.  
 map.values(), map.entries()도 마찬가지로 각각 이터레이터를 반환하는 함수이다.  
-그리고 반환된 각 이터레이터도 [Symbol.iterator]() 로 자기 자신의 이터레이터를 반환하기 때문에 이터러블하다.  
+그리고 반환된 각 이터레이터도 `[Symbol.iterator]()` 로 자기 자신의 이터레이터를 반환하기 때문에 이터러블하다.  
 그래서 다음 코드와 같이 반환한 이터레이터를 사용하여 또 순회를 할 수 있는 것이다.  
 
 ```js
@@ -126,3 +126,38 @@ for (const a of map.values()) log(a);
 for (const a of map.entries()) log(a);
 ```
 
+
+### 사용자 정의 이터러블
+
+`well-formed 이터레이터` 는 next() 로 일정 부분 진행하다가 순회를 진행할 수 있어야 한다.  
+그러기 위해서는 이터레이터 자신도 `[Symbol.iterator]()` 를 실행시켰을 때 자기 자신인 이터레이터를 반환할 수 있어야 한다.  
+
+사용자 정의 이터러블을 만들 때도 이 점을 인지하고 작성하면 다음과 같이 만들 수 있다.  
+
+```js
+const iterable = {
+  [Symbol.iterator]() {
+    let i = 3;
+    return {
+      next() {
+        return i == 0 ? { done: true } : { value: i--, done: false };
+      },
+      [Symbol.iterator]() { return this; } // 자기 자신도 Symbol.iterator로 가지고 있는다.
+    }
+  }
+};
+
+let iterator = iterable[Symbol.iterator]();
+log(iterator.next()); // 3
+for (const a of iterator) log(a); // 2 1
+```
+
+
+### 전개 연산자
+
+전개 연산자도 마찬가지로 이터러블/이터레이터 프로토콜을 사용한다.
+
+```js
+const a = [1, 2];
+log([...a, ...arr, ...set, ...map.keys()]); 
+```
