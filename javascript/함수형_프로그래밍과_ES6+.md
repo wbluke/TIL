@@ -161,3 +161,78 @@ for (const a of iterator) log(a); // 2 1
 const a = [1, 2];
 log([...a, ...arr, ...set, ...map.keys()]); 
 ```
+
+
+---
+
+## 제너레이터와 이터레이터
+
+- 제너레이터 : 이터레이터이자 이터러블을 생성하는 함수
+	- **제너레이터라는 문장을 통해, 어떤 값이든 순회할 수 있는 이터러블로 만들 수 있다**.  
+
+```js
+function *gen() {
+  yield 1;
+  yield 2;
+  yield 3;
+  return 100; // done이 true일 때 value 값
+}
+
+let iter = gen();
+log(iter[Symbol.iterator]() == iter); // true
+log(iter.next()); // { value: 1, done: false }
+log(iter.next()); // { value: 2, done: false }
+log(iter.next()); // { value: 3, done: false }
+log(iter.next()); // { value: 100, done: true }
+```
+
+- `yield` : value, done 두 속성을 가진 IteratorResult 객체를 반환한다. 
+	- yield 표현식에서 중지되면, 제너레이터의 next() 메서드가 호출될 때까지 제너레이터의 코드 실행이 중지된다.
+	- [yield - JavaScript | MDN](https://developer.mozilla.org/ko/docs/Web/JavaScript/Reference/Operators/yield)
+
+
+### odds
+
+여러가지 제너레이터를 활용해서 홀수만 출력하는 제너레이터를 만들어 보자.  
+
+```js
+function *infinity(i = 0) { // 무한루프를 썼지만 yield가 있기 때문에 next() 호출 범위까지만 실행되어 안전하다.
+  while (true) yield i++;
+}
+
+function *limit(l, iter) { // iter를 받아서 실행하다가 l과 같은 값이 나오면 멈춘다.
+  for (const a of iter) {
+    yield a;
+    if (a == l) return;
+  }
+}
+
+function *odds(l) { // 위 두 제너레이터를 활용하여 만든 홀수 제너레이터
+  for (const a of limit(l, infinity(1))) {
+    if (a % 2) yield a;
+  }
+}
+
+for (const a of odds(40)) log(a);
+```
+
+
+### for...of, 전개 연산자, 구조 분해, 나머지 연산자
+
+```js
+log(...odds(10)); // 1 3 5 7 9
+log([...odds(10), ...odds(20)]); // [1, 3, 5, 7, 9, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
+
+const [head, ...tail] = odds(5);
+log(head); // 1
+log(tail); // [3, 5]
+
+const [a, b, ...rest] = odds(10);
+log(a); // 1
+log(b); // 3
+log(rest); // [5, 7, 9]
+```
+
+---
+
+
