@@ -235,4 +235,71 @@ log(rest); // [5, 7, 9]
 
 ---
 
+## map, filter, reduce
+
+- 사용할 예시 데이터
+
+```js
+const products = {
+  { name: '반팔티', price: 15000 },
+  { name: '긴팔티', price: 20000 },
+  { name: '핸드폰케이스', price: 15000 },
+  { name: '후드티', price: 30000 },
+  { name: '바지', price: 25000 }
+}
+```
+
+
+### map
+
+#### map 의 동작 방식
+
+```js
+const map = (f, iter) => { // 함수를 받아서 사용하는 고차함수
+  let res = [];
+  for (const a of iter) {
+    res.push(f(a));
+  }
+  return res;
+};
+
+log(map(p => p.name, products));
+log(map(p => p.price, products));
+```
+
+#### 이터러블 프로토콜을 따른 map의 다형성
+
+```js
+log(document.querySelectorAll('*').map(el => el.nodeName)); // error
+```
+
+위 querySelectorAll은 nodeList를 반환하는 웹 브라우저의 함수인데, nodeList는 array를 상속받지 않았기 때문에 map 함수가 존재하지 않아 에러가 난다.  
+
+하지만 아래와 같이 방금 만든 map 함수를 사용하면, nodeList가 `이터러블 프로토콜`을 따르고 있기 때문에 정상 동작하게 된다.
+
+```js
+log(map(el => el.nodeName, document.querySelectorAll('*')); // 정상 동작
+```
+
+다시 말해서, 이터러블 프로토콜을 따르는 모든 함수는 우리가 만든 map의 대상이 될 수 있다. generator의 결과도 이터러블하기 때문에 마찬가지로 정상 동작한다.  
+
+```js
+function *gen() {
+  yield 2;
+  yield 3;
+  yield 4;
+}
+
+log(map(a => a * a, gen()); // [4, 9, 16]
+```
+
+Map 자료구조도 이터러블 프로토콜을 따르기 때문에 다음과 같은 예제도 가능하다.  
+
+```js
+let m = new Map();
+m.set('a', 10);
+m.set('b', 20);
+
+log(new Map(map(([k, a]) => [k, a * 2], m))); // value를 2배 한 새로운 Map
+```
 
