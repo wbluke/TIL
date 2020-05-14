@@ -252,7 +252,7 @@ const products = {
 
 ### map
 
-#### map 의 동작 방식
+#### 이터러블 프로토콜을 따른 map 의 동작 방식
 
 ```js
 const map = (f, iter) => { // 함수를 받아서 사용하는 고차함수
@@ -302,4 +302,84 @@ m.set('b', 20);
 
 log(new Map(map(([k, a]) => [k, a * 2], m))); // value를 2배 한 새로운 Map
 ```
+
+
+### 이터러블 프로토콜을 따른 filter
+
+```js
+const filter = (f, iter) => {
+  let res = [];
+  for (const a of iter) {
+    if (f(a)) res.push(a);
+  }
+  return res;
+};
+
+log(...filter(p => p.price < 20000, products));
+log(filter(n => n % 2, [1, 2, 3, 4])); // [1, 3]
+log(filter(n => n % 2, function *() { // [1, 3, 5]
+  yield 1;
+  yield 2;
+  yield 3;
+  yield 4;
+  yield 5;
+} ()));
+```
+
+
+### 이터러블 프로토콜을 따른 reduce
+
+```js
+const reduce = (f, acc, iter) => {
+  if (!iter) {  // 초기값 acc가 없는 경우
+    iter = acc[Symbol.iterator]();
+    acc = iter.next().value;
+  }
+
+  for (const a of iter) {
+    acc = f(acc, a);
+  }
+  return acc;
+};
+
+const add = (a, b) => a + b;
+log(reduce(add, 0, [1, 2, 3, 4, 5])); // 15
+
+log(reduce(add, [1, 2, 3, 4, 5])); // 15, 초기값은 optional하도록
+```
+
+- 조금 더 복잡한 경우 (products 예제)
+
+```js
+log(
+  reduce(
+    (total_price, product) => total_price + product.price, 
+    0, 
+    products)); // 105000
+```
+
+
+### map + filter + reduce 중첩 사용과 함수형 사고
+
+```js
+const add = (a, b) => a + b;
+
+log(
+  reduce(
+    add, 
+    map(p => p.price, 
+      filter(p => p.price < 20000, products)))); // 30000, 2만원 미만의 상품 가격을 전부 더한 값
+
+log(
+  reduce(
+    add, 
+    filter(n => n >= 20000, 
+      map(p => p.price, products))));
+```
+
+- 함수형 사고로 코드를 작성할 때는 단계별로 `평가`된 형태의 값을 생각하면서 코드를 작성하면 편하다.
+	- 예를 들어, 위 예제에서 reduce, map, filter를 해야하는데, 먼저  `reduce(add, [1, 2, 3, 4])` 같이 어떤 평가된 숫자 배열이 있고, 해당 배열에 대한 reduce 함수를 먼저 작성한 후, 그 다음 단계로 숫자 배열을 뽑아내기 위한 map 함수를 작성하는 식이다.
+
+---
+
 
