@@ -382,4 +382,120 @@ log(
 
 ---
 
+## 코드를 값으로 다루어 표현력 높이기
+
+### go, pipe
+
+- go : 함수의 리스트를 차례로 실행시켜서 즉시 평가된 값을 내는 함수
+- pipe : 함수들을 합성한 함수를 리턴하는 함수
+
+```js
+const go = (...args) => reduce((a, f) => f(a), args);
+const pipe = (f, ...fs) => (...as) => go(f(...as), ...fs);
+
+go(
+  0,
+  a => a + 1,
+  a => a + 10,
+  a => a + 100,
+  log); // 111
+
+const f = pipe(
+  a => a + 1,
+  a => a + 10,
+  a => a + 100);
+
+log(f(0)); // 111
+
+const f2 = pipe(
+  (a, b) => a + b,
+  a => a + 10,
+  a => a + 100);
+
+log(f2(0, 1)); // 111
+```
+
+- go를 사용하여 읽기 좋은 코드 만들기
+
+```js
+// 기존 코드
+log(
+  reduce(
+    add, 
+    map(p => p.price, 
+      filter(p => p.price < 20000, products))));
+
+go(
+  products,
+  products => filter(p => p.price < 20000, products),
+  products => map(p => p.price, products),
+  prices => reduce(add, prices),
+  log);
+```
+
+### curry
+
+- 함수를 값으로 다루면서 받아두었던 함수를 나중에 평가시키는 함수
+
+```js
+const curry = f => 
+  (a, ..._) => _.length ? f(a, ..._) : (..._) => f(a, ..._);
+
+const mult = curry((a, b) => a * b);
+log(mult(3)(2)); // 6
+
+const mult3 = mult(3);
+log(mult3(10)); // 30
+log(mult3(5)); // 15
+```
+
+- go+curry 를 사용하여 읽기 좋은 코드 만들기
+
+```js
+// 기존 코드
+go(
+  products,
+  products => filter(p => p.price < 20000, products),
+  products => map(p => p.price, products),
+  prices => reduce(add, prices),
+  log);
+
+// 기존 map, filter, reduce를 curry로 감싼 후
+go(
+  products,
+  products => filter(p => p.price < 20000)(products),
+  products => map(p => p.price)(products),
+  prices => reduce(add)(prices),
+  log);
+
+// 위 과정이 아래와 같이 바뀐다. 좀 소름...
+go(
+  products,
+  filter(p => p.price < 20000),
+  map(p => p.price),
+  reduce(add),
+  log);
+```
+
+- 함수 조합으로 함수 만들기
+
+```js
+const total_price = pipe(
+  map(p => p.price),
+  reduce(add));
+
+const base_total_price = predi => pipe(
+  filter(predi),
+  total_price);
+
+// 사용
+go(
+  products,
+  base_total_price(p => p.price < 20000),
+  log);
+```
+
+
+
+
 
