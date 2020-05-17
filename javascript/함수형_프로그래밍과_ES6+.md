@@ -523,3 +523,122 @@ const total_price = sum(p => p.price * p.quantity);
 
 ---
 
+## 지연성
+
+### range와 느긋한 L.range
+
+#### range
+
+```js
+const add = (a, b) => a + b;
+
+const range = l => {
+  let i = -1;
+  let res = [];
+  while (++i < l) {
+    res.push[i];
+  }
+  return res;
+};
+
+let list = range(4);
+log(list); // [0, 1, 2, 3]
+log(reduce(add, list)); // 6
+```
+
+#### 느긋한 L.range
+
+```js
+const L = {};
+L.range = function *(l) {
+  let i = -1;
+  while (++i < l) {
+    yield i;
+  }
+};
+
+let list = L.range(4); 
+log(list); // iterator 출력
+log(reduce(add, list)); // 6
+```
+
+- L.range에서는 결과물이 이터레이터이기 때문에 실제로 해당 이터레이터를 사용하기 전까지는 값들을 가져오지 않는다.
+	- 배열을 만들지 않고 Lazy하게 동작한다.
+	- 우리가 만든 reduce 내부에서도 이터레이터를 직접 만든 후에 순회하는 작업을 거치는데, L.range는 이터레이터를 직접 넣어주기 때문에 이터레이터가 자기 자신을 이터레이터로 다시 반환을 해서 좀 더 효율적인 측면도 있다.
+
+
+### take
+
+- limit 개수만큼 자르는 함수
+
+```js
+const take = (l, iter) => {
+  let res = [];
+  for (const a of iter) {
+    res.push(a);
+    if (res.length == l) return res;
+  }
+  return res;
+}
+
+log(take(5, range(100))); // [0, 1, 2, 3, 4]
+log(take(5, L.range(100))); // [0, 1, 2, 3, 4]
+```
+
+- take를 사용할 때도, range는 모든 array를 다 만들고 자르지만, L.range는 배열을 만들기 전에 필요한 만큼만 take로 잘라서 만들기 때문에 훨씬 효율적이다.  
+
+
+### 제너레이터/이터레이터 프로토콜로 구현하는 Lazy Evaluation (지연 평가)
+
+#### L.map
+
+```js
+L.map = function  *(f, iter) {
+  for (const a of iter) yield f(a);
+};
+
+var it = L.map(a => a + 10, [1, 2, 3]);
+log(it.next()); // next로 실행을 시켜야만 동작하는 Lazy한 map 함수
+```
+
+#### L.filter
+
+```js
+L.filter = function  *(f, iter) {
+  for (const a of iter) if (f(a)) yield a;
+};
+
+var it = L.filter(a => a % 2, [1, 2, 3, 4]);
+log(it.next()); // next로 실행을 시켜야만 동작하는 Lazy한 filter 함수
+```
+
+
+### 중첩 사용 시 즉시 평가와 지연 평가의 차이 및 순서
+
+```js
+go(range(10),
+  map(n => n + 10),
+  filter(n => n % 2),
+  take(2),
+  log); // [11, 13]
+
+go(L.range(10),
+  L.map(n => n + 10),
+  L.filter(n => n % 2),
+  take(2),
+  log); // [11, 13]
+```
+
+- Lazy 예제에서는 take가 가장 먼저 실행된다.
+	- 인자로는 L.filter라는 제너레이터가 리턴한 이터레이터가 전달된다.
+	- take 내부에서 filter의 이터레이터가 next()로 실행될 때 filter 함수가 Lazy하게 동작한다.
+	- yield가 차례로 실행됨에 따라 하나의 값을 차례로 range -> map -> filter -> take를 거쳐 평가하게 된다.
+	- 즉시 평가 예제와 비교해서 필요한 만큼만 평가하기 때문에 상당히 효율적이다.
+
+
+### ES6의 기본 규약을 통해 구현하는 지연 평가의 장점
+
+- 서로 다른 사람들이 만든 라이브러리라도 JS의 기본 규약을 따르기 때문에 안전하게 합성하고, 조합하여 사용할 수 있다.
+
+---
+
