@@ -640,5 +640,28 @@ go(L.range(10),
 
 - 서로 다른 사람들이 만든 라이브러리라도 JS의 기본 규약을 따르기 때문에 안전하게 합성하고, 조합하여 사용할 수 있다.
 
----
+
+### 결과를 만드는 함수 reduce, take
+
+#### Array.prototype.join 보다 다형성이 높은 join 함수
+
+```js
+L.entries = function *(obj) { // 지연된 entries
+  for (const k in obj) yield [k, obj[k]];
+}
+
+const join = curry((sep = ',', iter) =>
+  reduce((a, b) => `${a}${sep}${b}`, iter));
+
+const queryStr = pipe(
+  L.entries, // Object.entries 대신 L.entries로 지연 평가
+  L.map(([k, v]) => `${k}=${v}`), // map 대신 L.map으로 지연 평가
+  join('&')
+);
+
+log(queryStr({ limit: 10, offset: 10, type: 'notice' })); // limit=10&offset=10&type=notice
+```
+
+- 이터러블 프로토콜을 기반으로 만든 join
+	- `지연`을 시킬 수 있다.
 
