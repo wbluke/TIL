@@ -645,6 +645,8 @@ go(L.range(10),
 
 #### Array.prototype.join 보다 다형성이 높은 join 함수
 
+- join 함수는 reduce를 이용해서 결과를 만드는 함수
+
 ```js
 L.entries = function *(obj) { // 지연된 entries
   for (const k in obj) yield [k, obj[k]];
@@ -664,4 +666,107 @@ log(queryStr({ limit: 10, offset: 10, type: 'notice' })); // limit=10&offset=10&
 
 - 이터러블 프로토콜을 기반으로 만든 join
 	- `지연`을 시킬 수 있다.
+
+
+### take, find
+
+- find 함수는 take를 이용해서 결과를 만드는 함수
+
+```js
+const users = [
+  { age: 32 },
+  { age: 31 },
+  { age: 37 },
+  { age: 28 },
+  { age: 25 },
+  { age: 32 },
+  { age: 31 },
+  { age: 37 }
+];
+
+const find = curry((f, iter) => go(
+  iter,
+  L.filter(f), // 모든 배열을 다 만들지 않고 take가 하나만 찾을 때까지만 순회하는 지연 평가
+  take(1),
+  ([a]) => a));
+
+log(find(u => u.age < 30)(users)); // {age: 28}
+
+go(users,
+  L.map(u => u.age), // find도 이터레이터를 받는 함수이기 때문에 지연된 결과를 받아서 처리해줄 수 있다.
+  find(n => n < 30),
+  log);
+```
+
+
+### L.map, L.filter로 map, filter 만들기
+
+```js
+const map = curry(pipe(
+  L.map, // 지연된 결과를
+  take(Infinity) // 모두 평가한 결과로 만들어서 리턴하면 map이 된다.
+));
+
+log(map(a => a + 10, L.range(4))); // [10, 11, 12, 13]
+```
+
+```js
+const map = curry(pipe(
+  L.filter, // 지연된 결과를
+  take(Infinity) // 모두 평가한 결과로 만들어서 리턴하면 filer가 된다.
+));
+
+log(filter(a => a % 2, range(4))); // [1, 3]
+```
+
+
+### L.flatten, flatten
+
+- 주어진 값들을 펼치는 이터레이터를 만드는 함수
+
+```js
+const isIterable = a => a && a[Symbol.iterator];
+
+L.flatten = function *(iter) {
+  for (const a of iter) {
+    if (isIterable(a)) for (const b of a) yield b;
+    else yield a;
+  }
+};
+
+let it = L.flatten([[1, 2], 3, 4, [5, 6], [7, 8, 9]]);
+log([...it]); // [1, 2, 3, 4, 5, 6, 7, 8, 9]
+log(take(3, L.flatten([[1, 2], 3, 4, [5, 6], [7, 8, 9]]))); // [1, 2, 3]
+
+const flatten pipe(L.flatten, take(Infinity));
+log(flatten([[1, 2], 3, 4, [5, 6], [7, 8, 9]])); // [1, 2, 3, 4, 5, 6, 7, 8, 9]
+```
+
+### yield *
+
+- `yield *iterable` 은 `for (const val of iterable) yield val;` 과 같다.
+
+```js
+L.flatten = function *(iter) {
+  for (const a of iter) {
+    if (isIterable(a)) yield *a;
+    else yield a;
+  }
+};
+```
+
+### L.deepFlat
+
+- 깊은 iterable을 모두 펼치고 싶은 경우
+
+```js
+L.deepFlat = function *f(iter) {
+  for (const a of iter) {
+    if (isIterable(a)) yield *f(a);
+    else yield a;
+  }
+};
+
+log([...L.deepFlat([1, [2, [3, 4], [[5]]])]); // [1, 2, 3, 4, 5]
+```
 
