@@ -770,3 +770,18 @@ L.deepFlat = function *f(iter) {
 log([...L.deepFlat([1, [2, [3, 4], [[5]]])]); // [1, 2, 3, 4, 5]
 ```
 
+
+### L.flatMap, flatMap
+
+```js
+L.flatMap = curry(pipe(L.map, L.flatten)); // 지연 평가인 map 이후에 flatten
+
+let it = L.flatMap(map(a => a * a), [[1, 2], [3, 4], [5, 6, 7]]);
+log([...it]); // [1, 4, 9, 16, 25, 36, 49]
+
+const flatMap = curry(pipe(L.flatMap, take(Infinity))); // 지연된 결과를 즉시 평가로 전환
+```
+
+---
+
+
