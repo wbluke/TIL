@@ -838,3 +838,81 @@ log(go1(10, add5)); // 동기
 log(go1(delay100(10), add5)); // 비동기
 ```
 
+
+### 합성 관점의서의 Promise와 모나드
+
+- 모나드 : 박스(컨테이너) 안에 계산할 값이 들어있고, 해당 박스의 함수를 통해 안전하게 함수를 합성할 수 있도록 하는 방법
+
+```js
+// f . g
+// f(g(x))
+
+const g = a => a + 1;
+cosnt f = a => a * a;
+
+log(f(g(1))); // 4
+log(f(g())); // NaN
+
+[1].map(g).map(f).forEach(r => log(r)); // 4
+[].map(g).map(f).forEach(r => log(r)); // 실행 X. 값이 없어도 안전하다.
+
+Promise.resolve(1).then(g).then(f).then(r => log(r)); // 4
+Promise.resolve().then(g).then(f).then(r => log(r)); // 실행 X. 위의 Array를 사용한 모나드와 구조가 동일하다.
+```
+
+- Promise도 합성 관점에서 봤을 경우, 비동기 상황에서 적절한 시점에 함수를 평가해서 합성시키기 위한 도구라고 생각해볼 수 있다.
+
+
+### Kleisli Composition 관점에서의 Promise
+
+- Kleisli Composition : 오류가 있을 수 있는 상황에서 안전하게 함수를 합성할 수 있는 규칙
+	- 들어오는 인자가 잘못되거나, 정확한 인자가 들어오더라도 외부의 상황에 의해 정확한 결과를 반환할 수 없을 때, 이를 해결하기 위한 방법
+
+```js
+// f . g
+// f(g(x)) = f(g(x)) : 수학적으로는 맞지만, 프로그래밍에서는 평가 시점에 따라 좌변과 우변의 함수의 상태가 달라질 수 있다.
+// f(g(x)) = g(x) : g가 에러가 난 상황이라면 좌변과 우변의 결과가 같아야 한다. -> Kleisli Composition
+
+let users = [
+  { id: 1, name: 'aa' },
+  { id: 2, name: 'bb' },
+  { id: 3, name: 'cc' }
+];
+
+const getUserById = id => 
+  find(u => u.id === id, users);
+
+const f = ({name}) => name;
+const g = getUserById;
+
+const fg = id => f(g(id));
+
+const r = fg(2);
+users.pop();
+users.pop();
+const r2 = fg(2); // error
+```
+
+```js
+const getUserById = id => 
+  find(u => u.id === id, users) || Promise.reject('없어요!');
+
+const fg = id => Promise.resolve(id).then(g).then(f).catch(a => a);
+
+g(2); // Promise rejected
+users.pop();
+users.pop();
+fg(2).then(log); // 없어요!
+```
+
+
+### Promise.then의 중요한 규칙
+
+- Promise.then은 중첩된 Promise가 있더라도 한번에 값을 꺼낼 수 있게 해준다.
+
+```js
+Promise.resolve(Promise.resolve(Promise.resolve(1))).then(log); // 1
+
+new Promise(resolve => resolve(new Promise(resolve => resolve(1))).then(log); // 1
+```
+
