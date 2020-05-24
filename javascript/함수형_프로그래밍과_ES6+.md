@@ -916,3 +916,92 @@ Promise.resolve(Promise.resolve(Promise.resolve(1))).then(log); // 1
 new Promise(resolve => resolve(new Promise(resolve => resolve(1))).then(log); // 1
 ```
 
+
+### 지연 평가 + Promise
+
+```js
+const go1 = (a, f) => a instanceof Promise ? a.then(f) : f(a);
+
+L.map = curry(function *(f, iter) {
+  for (const a of iter) {
+    yield go1(a, f);
+  }
+});
+
+const take = (l, iter) => {
+  let res = [];
+  iter = iter[Symbol.iterator]();
+  return function recur() { // 재귀와 즉시실행을 사용한 Promise 처리
+    let cur;
+    while (!(cur = iter.next()).done) {
+      const a = cur.value;
+      if (a instanceof Promise) return a.then(a => {
+        res.push(a);
+        return (res.length == l) ? res : recur();
+      })
+      res.push(a);
+      if (res.length == l) return res;
+    }
+    return res;
+  } ();
+}
+
+go([Promise.resolve(1), Promise.resolve(2), Promise.resolve(3)],
+  L.map(a => a + 10),
+  take(2),
+  log);
+```
+
+
+### Kleisli Composition - L.filter, filter, nop, take
+
+```js
+const nop = Symbol('nop'); // 아무 일도 하지 않는다는 뜻의 구분자를 설정한다.
+
+L.filter = curry(function *(f, iter) {
+  for (const a of iter) {
+    const b = go1(a, f);
+    if (b instanceof Promise) yield b.then(b => b ? a : Promise.reject(nop)) // Kleisli Composition
+    if (b) yield a;
+  }
+});
+
+const take = (l, iter) => {
+  let res = [];
+  iter = iter[Symbol.iterator]();
+  return function recur() { // 재귀와 즉시실행을 사용한 Promise 처리
+    let cur;
+    while (!(cur = iter.next()).done) {
+      const a = cur.value;
+      if (a instanceof Promise) {
+        return a
+          .then(a => (res.push(a), res).length == l ? res : recur())
+          .catch(e => e == nop ? recur() : Promise.reject(e)); // nop을 catch하도록 추가
+      }
+      res.push(a);
+      if (res.length == l) return res;
+    }
+    return res;
+  } ();
+}
+
+go([1, 2, 3, 4, 5, 6],
+  L.map(a => Promise.resolve(a * a)),
+  L.filter(a => a % 2),
+  take(2),
+  log);
+```
+
+### 지연 평가 + Promise의 효율성
+
+- 비용이 큰 비동기 함수를 정말 필요한 라인만 통과하기 때문에 훨씬 효율적이다.
+	- 아래 예제에서 2개를 take하기 위해 모든 숫자의 수만큼 setTimeout이 걸리지 않는다는 의미이다.
+
+```js
+go([1, 2, 3, 4, 5, 6, 7, 8],
+  L.map(a => new Promise(resolve => setTimeout(() => resolve(a * a), 1000))),
+  L.filter(a => a % 2),
+  take(2), // 3초. take에 걸리는 부분만 위의 비동기 함수가 동작해서 훨씬 효율적이다.
+  log);
+```
+
