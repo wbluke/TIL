@@ -1005,3 +1005,40 @@ go([1, 2, 3, 4, 5, 6, 7, 8],
   log);
 ```
 
+
+### 지연된 함수열을 병렬적으로 평가하기
+
+```js
+const C = {};
+C.reduce = curry((f, acc, iter) => { // C는 Concurrency(병행성)를 의미
+  // iter가 없으면 acc가 iterator
+  const iter2 = iter ? [...iter] : [...acc]; // 비동기 함수들을 전체 실행 후 다시 reduce
+  
+  // catch를 미리 명시해두지 않으면 올바른 결과가 나오더라도 catch되지 않은 Promise를 보고 에러가 날 수 있다.  
+  iter2.forEach(a => a.catch(function() {}));
+
+  return iter ? 
+    reduce(f, acc, iter2) :
+    reduce(f, iter2);
+});
+
+const delay1000 = a => new Promise(resolve =>
+  setTimeout(() => resolve(a), 1000));
+
+go([1, 2, 3, 4, 5],
+  L.map(a => delay1000(a * a)),
+  L.filter(a => a % 2),
+  C.reduce(add), // 병렬 평가
+  log);
+```
+
+- 기존 reduce는 비동기 상황과 무관하게 위에서부터 넘어오는 함수를 하나씩 실행하고 반영하는데 비해, C.reduce는 일단 비동기 함수들을 모두 전체 실행시킨 다음, 다시 한 번 reduce를 돌면서 결과를 만든다. 결국 병렬적으로 값을 평가한다.
+
+```js
+C.take = curry((l, iter) => {
+  const iter2 = [...iter];
+  iter2.forEach(a => a.catch(function() {}));
+
+  return take(l, iter2);
+});
+```
