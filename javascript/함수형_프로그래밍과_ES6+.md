@@ -1042,3 +1042,19 @@ C.take = curry((l, iter) => {
   return take(l, iter2);
 });
 ```
+
+
+### 즉시 병렬적으로 평가하기
+
+```js
+C.takeAll = C.take(Infinity);
+
+C.map = curry(pipe(L.map, C.takeAll));
+C.filter = curry(pipe(L.filter, C.takeAll));
+
+C.map(a => delay1000(a * a), [1, 2, 3, 4]).then(log);
+C.filter(a => delay1000(a % 2), [1, 2, 3, 4]).then(log);
+```
+
+- 즉시 동시에 쏘고 취합하는 map, filter
+
