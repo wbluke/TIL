@@ -1058,3 +1058,40 @@ C.filter(a => delay1000(a % 2), [1, 2, 3, 4]).then(log);
 
 - 즉시 동시에 쏘고 취합하는 map, filter
 
+
+### async : await
+
+```js
+function delay(time) {
+  return new Promise(resolve => setTimeout(() => resolve(), time));
+}
+
+function delayIdentity(a) {
+  await delay(1000);
+  return a;
+}
+
+async function f1() {
+  const a = await delayIdentity(10);
+  log(a);
+}
+```
+
+- 어떤 함수를 await로 사용하려면 Promise를 반환하는 함수여야 한다.
+- async로 선언한 함수는 Promise를 리턴하는 함수이다.
+
+
+```js
+const pa = Promise.resolve(10);
+
+(async () => {
+  log(pa); // Promise
+}) ();
+
+(async () => {
+  log(await pa); // 10
+}) ();
+```
+
+- **async로 선언된 함수 내에서 await로 Promise의 값을 꺼내볼 수 있다.**
+
