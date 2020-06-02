@@ -1095,3 +1095,64 @@ const pa = Promise.resolve(10);
 
 - **async로 선언된 함수 내에서 await로 Promise의 값을 꺼내볼 수 있다.**
 
+---
+
+## 부록 (QnA)
+
+### Array.prototype.map이 있는데 왜 FxJS의 map 함수가 필요한가?
+
+```js
+async function delayI(a) {
+  return new Promise(resolve => setTimeout(() => resolve(a), 100));
+}
+
+async function f2() {
+  const list = [1, 2, 3, 4];
+
+  const temp = await list.map(async a => await delayI(a * a)); // async, await를 여기저기 걸어도
+  log(temp); // Promise만 4개 있는 배열이 나온다.
+
+  const res = await temp;
+  log(res); // map에서 Promise가 아니라 배열을 주기 때문에 실제로 원하는 값들을 꺼낼 수가 없다.
+}
+f2();
+```
+
+```js
+async function f3() {
+  const list = [1, 2, 3, 4];
+
+  const temp = await map(a => delayI(a * a), list);
+  log(temp); // [1, 4, 9, 16] 배열을 가지고 있는 Promise 1개
+
+  const res = await temp;
+  log(res); // [1, 4, 9, 16]
+}
+f3();
+```
+
+- async 함수에서 풀어서 return을 하더라도 외부에서는 Promise로 나간다.
+
+```js
+async function f4() {
+  const list = [1, 2, 3, 4];
+  const res = await map(a => delayI(a * a), list);
+  log(res); // [1, 4, 9 ,16]
+  return res; // 값을 await로 풀어서 던져도 외부에서는 Promise
+}
+
+log(f4()); // Promise
+(async () => {
+  log(await f4()); // [1, 4, 9 ,16]
+}) ();
+```
+
+- 사실 풀지않고 Promise 그대로 return 해도 동일하다.
+
+```js
+function f4() {
+  const list = [1, 2, 3, 4];
+  return map(a => delayI(a * a), list); // 위 함수와 동일하다.
+}
+```
+
