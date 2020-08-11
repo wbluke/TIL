@@ -1,3 +1,7 @@
+- 블로그 업로드 : https://wbluke.tistory.com/37
+
+---
+
 # CodeDeploy View events 에서 에러 로그를 확인할 수 없는 경우
 #TIL/devOps
 
