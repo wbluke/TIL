@@ -28,7 +28,7 @@ CI/CD 와 같이 인프라, 배포 환경을 구축하기 위해서는 내가 �
 > 이하 예제 코드와 캡처에 나오는 프로젝트, Controller 등의 이름은 크게 신경쓰지 않으셔도 됩니다.
 > 각자 본인 프로젝트에 맞게 적용하시면 됩니다.
 
-사용할 API는 한 두개 정도일 것이기 때문에 의존성은 `starter-web` 정도만 있으면 됩니다.  
+사용할 API는 한 두개 정도일 것이기 때문에 기본적인 설정 외에 의존성은 `starter-web` 정도만 있으면 됩니다.  
 
 ```script
 // build.gradle
@@ -81,12 +81,101 @@ logging-module:
 
 ## Github Actions
 
+### 소개
+
+가장 먼저 구축해 볼 것은 [GitHub Actions](https://github.com/features/actions) 입니다.  
+
+빌드와 배포를 유발하는 방법에는 정말 여러가지가 있을 수 있는데요, 작년 2019년에 갓 나온 Github Actions 는 손쉽게 개인 Github 코드 저장소에서 빌드/배포 환경을 구축할 수 있는 도구입니다.  
+지금 당장 사용할 일이 없더라도 한번쯤은 사용해보고 배워두면 깃헙 저장소를 계속 이용하는 이상 정말 쓸모가 많을 것 같다는 생각이 드네요.  
+심지어 public 저장소에서는 무료! 로 지원합니다.  
+
+기본적으로 yml 파일로 스크립트를 짜기 때문에 해당 파일 형식에 익숙하시다면 금방 적응하실 수 있습니다.  
+
+먼저 저장소의 Actions 에서 `set up a workflow yourself` 로 새 작업(이하 workflow)을 만들어 봅시다.  
+
+[사진]
+
+새 workflow 를 생성하면 좌측에는 yml 스크립트를 입력할 수 있는 부분이 있고, 우측에는 미리 만들어져 있는 스크립트를 필요에 따라 추가할 수 있는 `Marketplace` 와 workflow 에 대한 설명을 볼 수 있는 `Documentation` 이 있습니다.  
+Documentation 에는 비교적 쉽게 workflow 의 소개가 되어 있어서 한 번 참고해보시면 좋을 것 같습니다.  
+
+그리고 눈치 채신 분들도 계시겠지만 workflow yml 파일은 상단에서 볼 수 있다시피 `프로젝트/.github/workflows/` 위치에 생성됩니다.  
+
+[사진]
+
+좌측에 예시로 나와있는 설명도 간단하게 훑어보셨다면, 다음과 같이 스크립트를 작성해 보겠습니다.  
+
+```yml
+# logging-deploy.yml
+
+name: logging-system
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      
+      - name: Set up JDK 1.8
+        uses: actions/setup-java@v1
+        with:
+          java-version: 1.8
+      
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+        shell: bash
+
+      - name: Build with Gradle
+        run: ./gradlew build
+        shell: bash
+      
+# 다음 단계에서 스크립트 추가 예정
+
+```
+
+스크립트에 대한 설명은 다음과 같습니다.  
+
+- name
+	- workflow 의 이름을 지정합니다.  
+- on
+	- 이 workflow 가 언제 실행될건지 트리거를 지정할 수 있습니다. 특정 브랜치가 push 되는 경우, Pull Request 가 생성될 경우, 또는 crontab 문법으로 스케줄링을 걸 수도 있습니다. 
+	- `workflow_dispatch` 는 수동으로 해당 workflow 를 실행시키겠다는 의미입니다.
+	- push 등의 이벤트에 의해 자동으로 배포가 되기 보다는 사람이 수동으로 빌드/배포를 실행하는 것이 안전하다고 생각합니다.  
+- job, steps
+	- workflow 는 하나 혹은 그 이상의 job 을 가질 수 있고 각 job 은 여러 step 에 따라 단계를 나눌 수 있습니다.  
+- runs-on
+	- 해당 workflow 를 어떤 OS 환경에서 실행할 것인지 지정할 수 있습니다.
+
+각 step의 내용은 찬찬히 살펴보시면 이해하기 어렵지 않습니다. 
+`actions/행위 이름` 을 사용하는 step 은 앞서 보았던 marketplace 에서 미리 정의되어 있는 행위를 가져와서 사용한 것입니다.  
+
+checkout 은 깃헙이 제공하는 워크스페이스 (이 workflow 를 실행하는 공간) 에서 내 저장소가 위치한 곳으로 이동한다고 생각하시면 됩니다.  
+이후에는 java 를 셋업하고 gradlew 에 실행권한을 준 뒤 프로젝트를 build 하는 과정입니다.  
+
+> 각 스크립트에서 사용하는 파일의 위치, 경로 등은 프로젝트의 상황에 따라 알맞게 수정하셔야 합니다.
+> 예를 들어 멀티모듈 프로젝트의 경우, 해당 workflow 의 위치나 각 모듈의 최상단 위치를 고려하여 스크립트를 작성하셔야 합니다.  
+
+스크립트를 저장한 후, 다시 Actions 탭으로 이동하면 workflow 를 실행할 수 있는 페이지가 보입니다.  
+방금 `workflow_dispatch` 로 workflow 를 수동 실행하겠다고 스크립트를 작성했기 때문에, 아래와 같이 **Run workflow - 브랜치 선택**하여 Job 을 실행합니다.  
+
+[사진]
+
+그러면 다음과 같이 방금 만들었던 간단한 프로젝트에 대해 빌드가 실행된 것을 Step 별로 확인할 수 있습니다.  
+만약 스크립트가 실패했다면 어떤 Step에서 문제가 있었는지도 상세 로그를 통해 확인할 수 있습니다.  
+
+또한 bash 명령어를 얼마든지 추가할 수 있기 때문에, 필요에 따라 echo 등으로 각 단계 별 상태를 확인하면서 진행할 수도 있겠네요.  
+
+
+[사진]
 
 
 
 
-
-
+---
 
 ## S3 에 빌드한 jar 업로드
 
@@ -97,7 +186,7 @@ logging-module:
 
 
 
-
+---
 
 ## CodeDeploy
 
@@ -106,7 +195,7 @@ logging-module:
 
 
 
-
+---
 
 ## Nginx
 
