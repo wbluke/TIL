@@ -6,7 +6,7 @@
 ## 개요
 
 안녕하세요!  
-이번 글에서는 제목에서와 같이 Github Actions 와 CodeDeploy, 그리고 Nginx 를 사용하여 최소 규모의 무중단 배포를 진행하는 방법에 대해 정리해보려고 합니다.  
+이번 시리즈에서는 제목에서와 같이 Github Actions 와 CodeDeploy, 그리고 Nginx 를 사용하여 최소 규모의 무중단 배포를 진행하는 방법에 대해 정리해보려고 합니다.  
 관련 코드는 [Github 저장소](https://github.com/wbluke/playground) 에서 확인하실 수 있습니다.  
 
 
@@ -246,7 +246,10 @@ Github Actions 에서 AWS CLI 명령을 통해 엑세스할 것이기 때문에,
 
 ### S3 에 jar 파일 업로드하기
 
+이제 만들어놓은 S3 버킷에 build 한 jar 파일을 업로드해 보겠습니다.  
+업로드할 때는 zip 으로 압축하는 과정이 필요합니다.  
 
+Github Actions 의 스크립트에 아래 내용을 추가하겠습니다.  
 
 ```yml
 # logging-deploy.yml
@@ -295,18 +298,47 @@ jobs:
 - `aws s3 cp`
 	- aws cli 명령어 중 하나입니다. copy 명령어로 현재 위치의 파일을 S3로 업로드하거나, 반대로 S3의 파일을 현재 위치로 다운로드할 수 있습니다. ([AWS CLI 레퍼런스 - 객체 관리](https://docs.aws.amazon.com/ko_kr/cli/latest/userguide/cli-services-s3-commands.html#using-s3-commands-managing-objects))
 
+jar 파일을 압축하고, AWS credential 을 설정하여 S3에 업로드하는 과정까지 추가가 되었는데요.  
+아까 IAM 사용자 권한을 만들고 받았던 엑세스 키 ID와 비밀 엑세스 키를 해당 저장소에 등록해 보겠습니다.  
+
 
 [image:B6ED50EF-04CD-420E-B16F-EFE6B26E49F0-412-00000D2B5EDA9BC9/A1A1F922-588A-4D90-AE48-7BB8236DFEA1.png]
 
+Github 저장소의 Settings - Secrets - New secret 으로 스크립트에 작성했던 세 가지 값을 아래와 같이 등록합니다.  
+
+```md
+- AWS_ACCESS_KEY_ID : 엑세스 키 ID
+- AWS_SECRET_ACCESS_KEY : 비밀 엑세스 키
+- AWS_REGION : ap-northeast-2
+```
+
+저장한 비밀값들은 스크립트에서 `${{ secrets.KEY값 }}`으로 참조할 수 있습니다.  
+
+다시 한 번 스크립트를 실행해보시고, S3 버킷을 열어보시면!  
 
 [image:D5E97594-662A-40B5-A165-58710AB0C680-412-00000D56FBB752E8/62565CDD-4802-455E-955C-E0A66D019993.png]
 
+해당 버킷에 프로젝트 이름으로 디렉토리가 생겼고, 안에는 프로젝트의 마지막 커밋 번호가 파일명인 zip 파일이 생긴 것을 확인하실 수 있습니다.  
 
 ---
 
 ## CodeDeploy
 
+### 소개
 
+[image:7039AA6A-16E4-4438-83B7-699CBEFB4E3B-368-000015551279EBE1/52E9F243-452B-4AE9-96FB-0B82F22FD405.png]
+
+다음으로는 Github Actions 에서 CodeDeploy 에게 **S3에 있는 jar 파일을 가져가서 담당한 배포 그룹의 EC2에 배포해 줘!** 라는 명령을 내릴 수 있도록 구성해 보겠습니다.  
+
+먼저 CodeDeploy에 대해 간단하게 소개하자면, 애플리케이션 배포를 자동화하는 AWS 의 배포 서비스입니다.  
+EC2, AWS Lambda 와 같은 서비스에 배포를 할 수 있고, 현재위치 배포나 블루/그린 배포와 같은 무중단 배포를 지원합니다.  
+한 번 구축해 놓으면 이후로는 배포가 매우 간편하고 AWS 콘솔을 통해 제어하면서 배포 과정을 확인할 수 있기 때문에 많은 분들이 이 서비스를 이용하여 배포 플로우를 구축합니다.  
+조금 더 자세한 설명은 [CodeDeploy 레퍼런스](https://docs.aws.amazon.com/ko_kr/codedeploy/latest/userguide/welcome.html)를 참고해보시면 좋습니다.  
+
+### 배포할 EC2 세팅하기
+
+
+### CodeDeploy 배포 설정하기
 
 
 
