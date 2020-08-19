@@ -6,7 +6,7 @@
 ## 개요
 
 안녕하세요!  
-이번 시리즈에서는 제목에서와 같이 Github Actions 와 CodeDeploy, 그리고 Nginx 를 사용하여 최소 규모의 무중단 배포를 진행하는 방법에 대해 정리해보려고 합니다.  
+이번 시리즈에서는 제목에서와 같이 Github Actions 와 CodeDeploy, 그리고 Nginx 를 사용하여 **하나의 서버에서 최소 규모의 무중단 배포**를 진행하는 방법에 대해 정리해보려고 합니다.  
 관련 코드는 [Github 저장소](https://github.com/wbluke/playground) 에서 확인하실 수 있습니다.  
 
 
@@ -529,6 +529,8 @@ permissions:
 Github Actions 는 이번 CodeDeploy Step 작업을 끝으로 더이상 추가할 것이 없으니 전체 스크립트를 다시 보여드리겠습니다.  
 
 ```yaml
+# logging-deploy.yml
+
 name: logging-system
 
 on:
@@ -603,10 +605,16 @@ sudo service codedeploy-agent restart
 [image:7FC24D4D-F1EA-41F9-BC8E-9BE1746699C4-400-000016575087DB50/84E68BF6-8D1F-46E9-B51F-1AD091F55044.png]
 
 CodeDeploy의 배포가 성공한 것을 볼 수 있습니다!  
-물론 아직 진짜 배포를 하도록 스크립트를 짜지는 않았지만, 적어도 각 서비스 간 통신은 잘 이루어졌다고 봐도 무방합니다.  
+
+EC2에 접속해서 한번 확인해 보겠습니다.  
+
+[image:BF0D954B-6159-4832-9665-AF0AB96602BF-370-000025FE8CB211D9/8AD1C1C9-2DE6-4CD2-BBCF-A47ECD28B2F4.png]
+
+ec2-user home 디렉토리에 S3에서 받아온 프로젝트가 있는 것을 확인할 수 있습니다!  
+물론 아직 진짜 배포를 하도록 스크립트를 짜지는 않았지만, 적어도 각 서비스 간 통신은 잘 이루어졌다고 생각할 수 있습니다.  
 
 만약 배포가 실패했다면 아래쪽에 배포 실행 목록에서 `View events`를 확인하면 에러 로그를 볼 수 있습니다.  
-[View events를 확인했는데 에러 로그도 보이지 않는다면, 이 글](https://wbluke.tistory.com/37)을 참고해주세요!  
+[View events를 확인했는데 에러 로그도 보이지 않는다면, 이 글](https://wbluke.tistory.com/37)을 참고해 주세요!  
 
 여기까지 완료했다면 이제 마지막 단계인 Nginx 무중단 배포를 진행하러 가보겠습니다.  
 
@@ -614,8 +622,52 @@ CodeDeploy의 배포가 성공한 것을 볼 수 있습니다!
 
 ## Nginx
 
-```script
-include /home/ec2-user/service-url.inc;
+### 소개
+
+[image:77DA55B8-FD1D-4AE5-BE3C-81BB022B69B9-370-000000E117BEC81F/1B5E8B6E-C152-4A4F-94FB-CE02B8133905.png]
+
+Nginx는 널리 쓰이는 웹 서버 중 하나입니다.  
+동적 처리를 주로 담당하는 WAS(Web Application Server)와는 다르게 웹 서버(Web Server)는 정적 자원에 대한 응답을 내려주는 역할을 가지고 있는데요.  
+Nginx는 정적 자원의 처리 외에도 proxy 서버의 역할이나, reverse proxy 서버의 역할 등 여러방면에서 높은 활용도를 보여줍니다.  
+
+여기서는 Nginx가 CodeDeploy Agent에 의해 두 WAS간의 스위칭 역할을 담당하도록 구성해 보겠습니다.  
+
+### Nginx 설치와 설정
+
+먼저 Nginx를 설치하겠습니다.  
+
+EC2에 ssh로 접속하여 다음 커맨드를 수행합니다.  
+
+```sh
+sudo yum install nginx
+```
+
+그럼 설치가 되는 듯 하였으나, 다음과 같이 Amazon Linux 에서의 설치법을 따로 안내해줍니다.  
+
+[image:8AAC5886-1600-417A-A782-C73F5D3E4802-370-000002666E1420F8/621AEA6C-993E-4351-B593-3F481D72469A.png]
+
+안내대로 다시 커맨드를 입력합니다.  
+
+```sh
+sudo amazon-linux-extras install nginx1
+sudo nginx -v # 설치 버전 확인
+```
+
+설치 후 `/etc/nginx/` 로 이동해 보시면 다양한 nginx 설치파일들을 보실 수 있는데요.  
+우리가 관심있게 보아야 할 것은 설정파일인  `nginx.conf` 파일입니다.  
+
+파일 수정이 필요하니 sudo 권한으로 nginx.conf 파일을 엽니다.  
+
+```sh
+sudo vim /etc/nginx/nginx.conf
+```
+
+다음과 같이 스크립트를 추가하겠습니다.  
+
+[image:B830D45B-62FB-4A73-9A95-41403883B45C-370-0000287A967E9D5D/A4843005-FC8E-432C-B3DB-0876528D0531.png]
+
+```sh
+include /home/ec2-user/service_url.inc;
 
 location / {
 	proxy_set_header    X-Forwarded-For $remote_addr;
@@ -624,36 +676,227 @@ location / {
 }
 ```
 
+- include
+	- 다른 곳에 존재하는 설정 파일 등을 불러올 수 있습니다.  
+- proxy_pass
+	- 우리가 지정할 **$service_url**로 요청을 보낼 수 있도록 하는 프록시 설정입니다.  
+
+include 로 불러올 파일 경로에 다음과 같이 파일을 생성하고 $service_url 변수를 설정하겠습니다.  
+
+```sh
+vim /home/ec2-user/service_url.inc
+```
+
+```sh
+# service_url.inc
+
+set $service_url http://127.0.0.1:8081;
+```
+
+이러면 nginx 설정은 끝입니다!  
+
+다음 명령어로 nginx를 시작하고 nginx의 status를 확인할 수 있습니다.  
+
+```sh
+sudo service nginx start
+sudo service nginx status
+```
+
+
+### 배포 스크립트 추가
+
+마지막으로 프로젝트에 CodeDeploy Agent가 참고하여 배포를 진행하기 위한 스크립트들을 추가해보도록 하겠습니다.  
+
+appspec.yml에 다음과 같이 스크립트를 추가합니다.  
+
+```yaml
+# appspec.yml
+
+version: 0.0
+os: linux
+files:
+  - source: /
+    destination: /home/ec2-user/playground-logging/
+    overwrite: yes
+
+permissions:
+  - object: /
+    pattern: "**"
+    owner: ec2-user
+    group: ec2-user
+
+### 새로 추가한 부분 ###
+hooks:
+  ApplicationStart:
+    - location: scripts/run_new_was.sh
+      timeout: 180
+      runas: ec2-user
+    - location: scripts/health_check.sh
+      timeout: 180
+      runas: ec2-user
+    - location: scripts/switch.sh
+      timeout: 180
+      runas: ec2-user
+```
+
+- hooks
+	- CodeDeploy의 배포에는 각 단계 별 수명 주기가 존재합니다. 수명 주기에 따라 원하는 스크립트를 수행할 수 있습니다.  
+	- [AppSpec 'hooks' 섹션 레퍼런스](https://docs.aws.amazon.com/ko_kr/codedeploy/latest/userguide/reference-appspec-file-structure-hooks.html#reference-appspec-file-structure-hooks-list)
+
+ApplicationStart라는 수명 주기에 세 가지 스크립트를 차례로 실행시키겠습니다.  
+
+프로젝트 최상단에 scripts 라는 디렉토리를 만들고 다음과 같이 세 개의 파일을 만들겠습니다!  
+
+[image:C2B76624-3D42-4C78-B2AB-FB2D291CEBE5-370-000024E18646AE05/4EE67E5A-E983-4855-82DA-F19221A60D8C.png]
+
+
+```sh
+# run_new_was.sh
+
+#!/bin/bash
+
+CURRENT_PORT=$(cat /home/ec2-user/service_url.inc | grep -Po '[0-9]+' | tail -1)
+TARGET_PORT=0
+
+echo "> Current port of running WAS is ${CURRENT_PORT}."
+
+if [ ${CURRENT_PORT} -eq 8081 ]; then
+  TARGET_PORT=8082
+elif [ ${CURRENT_PORT} -eq 8082 ]; then
+  TARGET_PORT=8081
+else
+  echo "> No WAS is connected to nginx"
+fi
+
+TARGET_PID=$(lsof -Fp -i TCP:${TARGET_PORT} | grep -Po 'p[0-9]+' | grep -Po '[0-9]+')
+
+if [ ! -z ${TARGET_PID} ]; then
+  echo "> Kill WAS running at ${TARGET_PORT}."
+  sudo kill ${TARGET_PID}
+fi
+
+nohup java -jar -Dserver.port=${TARGET_PORT} /home/ec2-user/playground-logging/build/libs/* > /home/ec2-user/nohup.out 2>&1 &
+echo "> Now new WAS runs at ${TARGET_PORT}."
+exit 0
+```
+
+- 새로운 WAS를 띄우는 스크립트입니다.
+	- service_url.inc 에서 현재 서비스를 하고 있는 WAS의 포트 번호를 읽어옵니다.
+	- 현재 포트 번호가 8081이면 새로 WAS를 띄울 타겟 포트는 8082, 혹은 그 반대 상황이라면 8081을 지정합니다.  
+	- 만약 타겟포트에도 WAS가 떠 있다면 kill하고 새롭게 WAS를 띄웁니다.
+- nohup
+	- 터미널 엑세스가 끊겨도 실행한 프로세스가 계속 동작하게 합니다.
+	- 마지막의 `&`는 프로세스가 백그라운드로 실행되도록 해줍니다.  
+
+
+```sh
+# health_check.sh
+
+#!/bin/bash
+
+# Crawl current connected port of WAS
+CURRENT_PORT=$(cat /home/ec2-user/service_url.inc | grep -Po '[0-9]+' | tail -1)
+TARGET_PORT=0
+
+# Toggle port Number
+if [ ${CURRENT_PORT} -eq 8081 ]; then
+	TARGET_PORT=8082
+elif [ ${CURRENT_PORT} -eq 8082 ]; then
+	TARGET_PORT=8081
+else
+	echo "> No WAS is connected to nginx"
+	exit 1
+fi
+
+
+echo "> Start health check of WAS at 'http://127.0.0.1:${TARGET_PORT}' ..."
+
+for RETRY_COUNT in 1 2 3 4 5 6 7 8 9 10
+do
+	echo "> #${RETRY_COUNT} trying..."
+	RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}"  http://127.0.0.1:${TARGET_PORT}/health)
+
+	if [ ${RESPONSE_CODE} -eq 200 ]; then
+		echo "> New WAS successfully running"
+		exit 0
+	elif [ ${RETRY_COUNT} -eq 10 ]; then
+		echo "> Health check failed."
+		exit 1
+	fi
+	sleep 10
+done
+```
+
+- 새로 띄운 WAS가 완전히 실행되기까지 health check 하는 스크립트입니다.  
+
+
+```sh
+# switch.sh
+
+#!/bin/bash
+
+# Crawl current connected port of WAS
+CURRENT_PORT=$(cat /home/ec2-user/service_url.inc  | grep -Po '[0-9]+' | tail -1)
+TARGET_PORT=0
+
+echo "> Nginx currently proxies to ${CURRENT_PORT}."
+
+# Toggle port number
+if [ ${CURRENT_PORT} -eq 8081 ]; then
+	TARGET_PORT=8082
+elif [ ${CURRENT_PORT} -eq 8082 ]; then
+	TARGET_PORT=8081
+else
+	echo "> No WAS is connected to nginx"
+	exit 1
+fi
+
+# Change proxying port into target port
+echo "set \$service_url http://127.0.0.1:${TARGET_PORT};" | tee /home/ec2-user/service_url.inc
+
+echo "> Now Nginx proxies to ${TARGET_PORT}."
+
+# Reload nginx
+sudo service nginx reload
+
+echo "> Nginx reloaded."
+```
+
+- nginx 리로드를 통해 서비스하는 포트를 스위칭하는 스크립트입니다. 
+	- `sudo service nginx reload` 는 nginx 서버의 재시작 없이 바로 새로운 설정값으로 서비스를 이어나갈 수 있도록 합니다.
+	- `sudo service nginx restart` 는 말그대로 서버의 shutdown 이후 재시작하는 명령이므로 의도하지 않았다면 주의해야 합니다.
+- tee
+	- 출력 내용을 파일로 만들어주는 커맨드입니다.
+	- 새로 띄운 WAS의 포트를 nginx가 읽을 수 있도록 service_url.inc에 내용을 덮어씁니다. 
+
+
+첫 서버 8081로 띄우기
+
+
+
+[image:25924D0B-ECDC-45F5-972B-B66BB8FD0667-370-0000274CD2E6A47B/F8FC7B0E-9AEB-4976-A9B3-B87CDEC4FF77.png]
 
 
 
 
 
+[image:77ADDEB6-FCB4-4A52-A91C-89FCF0B2607F-370-00002781B9353988/B1617923-350B-4DF3-B111-F0724320DCB4.png]
 
 
 
 
 
+[image:80ABFD34-BEEB-4005-A1D9-20901E950090-370-000028CDB097BBA2/1D35AEAF-CD54-445A-8C0F-8F94AF3F7573.png]
 
 
 
 
 
+[image:8ADC7F59-98E8-418D-881F-F8871487F72F-370-000028FC8C836CA4/726DD374-05BC-4E98-B27D-33E0E92AE00F.png]
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
+[image:0AD9911D-43C1-40B9-B236-AB05AF74A23A-370-000029154B42ED78/7BA08EAE-882E-44D4-B1E4-8A921262756B.png]
 
 
 
