@@ -1,3 +1,10 @@
+- 블로그 업로드
+  - https://wbluke.tistory.com/39
+  - https://wbluke.tistory.com/40
+  - https://wbluke.tistory.com/41
+
+---
+
 # Github Actions + CodeDeploy + Nginx 로 무중단 배포하기
 #TIL/devOps
 
@@ -15,7 +22,7 @@
 CI/CD 와 같이 인프라, 배포 환경을 구축하기 위해서는 내가 만들고자 하는 전체 그림을 숙지하는 것이 가장 중요하다고 생각합니다.  
 그래야 진행~~삽질~~ 중에 막혔을 때 어느 부분이 문제일지 빠르게 유추해 볼 수 있기 때문입니다.  
 
-[image:1736B98D-7C89-4D58-B746-DA112416B8D9-368-000001F44FE4E33A/0AE43EB4-2F6F-4A48-BFE7-244CACF46015.png]
+![](./images/ACN_01.png)
 
 이 그림이 지금부터 하나씩 만들어 볼 배포 플로우입니다.  
 
@@ -82,8 +89,7 @@ logging-module:
 
 아래와 같이 정말 간단한 형태의 프로젝트가 완성되었습니다!
 
-[image:358AC1AC-80C5-4449-87DF-7C5A0C15BAE2-379-00000C7749B306D3/78D41EE6-DC54-4154-8E71-61CA5A7C5B4E.png]
-
+![](./images/ACN_02.png)
 
 
 ## Github Actions
@@ -102,14 +108,14 @@ logging-module:
 
 먼저 저장소의 Actions 에서 `set up a workflow yourself` 로 새 작업(이하 workflow)을 만들어 봅시다.  
 
-[image:C4A58964-C301-4D20-8529-FFE35D479D24-379-0000208A72862576/4E031957-0341-4C2D-9B78-74424D4BA4D0.png]
+![](./images/ACN_03.png)
 
 새 workflow 를 생성하면 좌측에는 yml 스크립트를 입력할 수 있는 부분이 있고, 우측에는 미리 만들어져 있는 스크립트를 필요에 따라 추가할 수 있는 `Marketplace` 와 workflow 에 대한 설명을 볼 수 있는 `Documentation` 이 있습니다.  
 Documentation 에는 비교적 쉽게 workflow 의 소개가 되어 있어서 한 번 참고해보시면 좋을 것 같습니다.  
 
 그리고 눈치 채신 분들도 계시겠지만 workflow yml 파일은 상단에서 볼 수 있다시피 `프로젝트/.github/workflows/` 위치에 생성됩니다.  
 
-[image:CEBF4E53-5104-4877-806C-17B8C8E8D57C-379-000021F98D7FE1FB/6032CF47-1A73-45EE-A4D4-D4E1259B76EC.png]
+![](./images/ACN_04.png)
 
 좌측에 예시로 나와있는 설명도 간단하게 훑어보셨다면, 다음과 같이 스크립트를 작성해 보겠습니다.  
 
@@ -171,15 +177,14 @@ checkout 은 깃헙이 제공하는 워크스페이스 (이 workflow 를 실행�
 스크립트를 저장한 후, 다시 Actions 탭으로 이동하면 workflow 를 실행할 수 있는 페이지가 보입니다.  
 방금 `workflow_dispatch` 로 workflow 를 수동 실행하겠다고 스크립트를 작성했기 때문에, 아래와 같이 **Run workflow - 브랜치 선택**하여 Job 을 실행합니다.  
 
-[image:ED61BF1A-ABFA-475F-8462-6C1161FCFBF5-379-000022B9B2162C8A/868877C7-6D68-4E9C-85F2-57C99C1516BC.png]
+![](./images/ACN_05.png)
 
 그러면 다음과 같이 방금 만들었던 간단한 프로젝트에 대해 빌드가 실행된 것을 Step 별로 확인할 수 있습니다.  
 만약 스크립트가 실패했다면 어떤 Step에서 문제가 있었는지도 상세 로그를 통해 확인할 수 있습니다.  
 
 또한 bash 명령어를 얼마든지 추가할 수 있기 때문에, 필요에 따라 echo 등으로 각 단계 별 상태를 확인하면서 진행할 수도 있겠네요.  
 
-
-[image:A6B4D014-B1C1-4F37-B962-DBDB8460E46D-366-000019DBF67C6E79/스크린샷 2020-08-12 오후 10.07.37.png]
+![](./images/ACN_06.png)
 
 프로젝트 빌드 작업까지 완료되었습니다!  
 
@@ -189,7 +194,7 @@ checkout 은 깃헙이 제공하는 워크스페이스 (이 workflow 를 실행�
 
 ### S3 bucket 생성하기
 
-[image:AE3E8CB1-35CE-408A-B000-D33E834325B1-368-00000200D09D9AA6/45589900-0238-4CEA-B2CF-BB7F3E0296CB.png]
+![](./images/ACN_07.png)
 
 다음은 빌드한 jar 파일을 S3 버킷에 업로드해 보겠습니다.  
 
@@ -204,18 +209,18 @@ S3 (Simple Storage Service) 는 다들 잘 아시겠지만, AWS 에서 지원하
 > 하나의 버킷 내에서도 디렉토리를 나누어 파일을 관리할 수 있습니다.  
 
 
-[image:23552D2C-A8C9-40E8-8D1A-823F87553EA7-412-00000A1961A12DBA/A2C18541-1533-49B1-8D76-A74147A1FDEB.png]
+![](./images/ACN_08.png)
 
 버킷 이름을 입력하고 다음으로 넘어가면, 다른 옵션들은 특별히 건드릴 것이 없습니다.  
 
 참고로 아래의 권한 설정에서는, `모든 퍼블릭 엑세스 차단` 이 체크되어 있는지 확인합니다.  
 '어? 외부에서 접근하려면 퍼블릭 권한을 줘야 하는 것 아닌가?' 라고 생각하실 수도 있지만, 우리는 `IAM` 이라는 또 다른 AWS 의 권한 서비스를 이용하여 최소한의 접근 권한만 가지고 플로우를 구축할 것이기 때문에 넘어가시면 됩니다.  
 
-[image:A2BB926B-84F2-4ACD-9FC8-2298EAFC9924-412-00000A2A909F18C0/B91D980E-1D98-4C37-AD52-7BA4D316ED12.png]
+![](./images/ACN_09.png)
 
 새로운 버킷이 만들어졌습니다!  
 
-[image:31167FAE-671F-4736-ABBB-041264E5DDC3-412-00000AB495B82CA7/66AAF58B-98A6-4135-9093-E3184CD8C7E6.png]
+![](./images/ACN_10.png)
 
 
 
@@ -233,21 +238,21 @@ Github Actions 에서 AWS CLI 명령을 통해 엑세스할 것이기 때문에,
 (엑세스 키 ID와 비밀 엑세스 키는 일종의 아이디/비밀번호 라고 생각하시면 됩니다.)
 
 
-[image:C22642E3-82C2-4876-A171-F72F979FB126-412-00000B847E4270A8/70E369E5-C9B5-4EBE-952B-F11C1BA318B2.png]
+![](./images/ACN_11.png)
 
 다음은 부여할 권한 정책을 선택합니다.  
 기존 정책 직접 연결 - 검색 에서 `AmazonS3FullAccess` 와 `AWSCodeDeployFullAccess` 를 선택합니다.  
 
-[image:86DF58E0-4D3A-4A96-8B00-CA16D415F272-412-00000B7142928F15/38490D63-E30B-4B02-942A-D46451413E01.png]
+![](./images/ACN_12.png)
 
 태그는 다른 사용자 역할과 구분하기 위함이니 편하신대로 입력하시면 됩니다.  
 
-[image:57A67958-51DD-4290-A421-B50156BA2D0D-412-00000BF958EFBBC5/1D2B9173-3DE2-47AD-85C9-4F056868291D.png]
+![](./images/ACN_13.png)
 
 사용자를 생성하면 마지막 페이지에서 다음과 같이 엑세스 키 ID와 비밀 엑세스 키가 나오는데요.  
 이 값을 잘 복사해놓으시거나 왼편의 CSV 를 다운로드하여 보관하시기 바랍니다.  
 
-[image:4496DD08-4739-49CE-9921-387E65EB8786-412-00000C39E3DBB1B6/2A7F7EC7-42ED-40F9-8B65-E3882BAD057F.png]
+![](./images/ACN_14.png)
 
 
 ### S3 에 jar 파일 업로드하기
@@ -308,7 +313,7 @@ jar 파일을 압축하고, AWS credential 을 설정하여 S3에 업로드하�
 아까 IAM 사용자 권한을 만들고 받았던 엑세스 키 ID와 비밀 엑세스 키를 해당 저장소에 등록해 보겠습니다.  
 
 
-[image:B6ED50EF-04CD-420E-B16F-EFE6B26E49F0-412-00000D2B5EDA9BC9/A1A1F922-588A-4D90-AE48-7BB8236DFEA1.png]
+![](./images/ACN_15.png)
 
 Github 저장소의 Settings - Secrets - New secret 으로 스크립트에 작성했던 세 가지 값을 아래와 같이 등록합니다.  
 
@@ -322,7 +327,7 @@ Github 저장소의 Settings - Secrets - New secret 으로 스크립트에 작�
 
 다시 한 번 스크립트를 실행해보시고, S3 버킷을 열어보시면!  
 
-[image:D5E97594-662A-40B5-A165-58710AB0C680-412-00000D56FBB752E8/62565CDD-4802-455E-955C-E0A66D019993.png]
+![](./images/ACN_16.png)
 
 해당 버킷에 프로젝트 이름으로 디렉토리가 생겼고, 안에는 프로젝트의 마지막 커밋 번호가 파일명인 zip 파일이 생긴 것을 확인하실 수 있습니다.  
 
@@ -332,7 +337,7 @@ Github 저장소의 Settings - Secrets - New secret 으로 스크립트에 작�
 
 ### 소개
 
-[image:359CBD3D-21DE-44F8-89DA-E9BD898DAE0F-368-0000020CE81D40CD/D115BE3B-9096-4D13-B672-9E9F92AFF81D.png]
+![](./images/ACN_17.png)
 
 다음으로는 Github Actions 에서 CodeDeploy 에게 **S3에 있는 jar 파일을 가져가서 담당한 배포 그룹의 EC2에 배포해 줘!** 라는 명령을 내릴 수 있도록 구성해 보겠습니다.  
 
@@ -365,11 +370,11 @@ EC2 인스턴스를 띄우는 방법은 이미 많은 자료가 있기 때문에
 다만 다음과 같이 인바운드 규칙을 생성해주세요!  
 ssh 접속은 현재 내 IP, 그리고 기본적으로 웹 서비스를 할 서버이기 때문에 HTTP, HTTPS 포트인 80, 443 포트에 대해서는 열어주시면 됩니다.    
 
-[image:89A63796-DFC0-41F4-9F3D-412CCFC0FF57-390-00000AE8AFDAF192/0E982D8B-1F1E-4F46-AC76-332C3A4A0B7C.png]
+![](./images/ACN_18.png)
 
 ssh 로 새롭게 생성한 인스턴스에 접속해주세요!  
 
-[image:EF391078-E2EC-4C13-9030-00DAAB53E2AB-390-00000B1AC66E01C9/88EDFF27-1025-4E9F-A765-37FCC7DC37C6.png]
+![](./images/ACN_19.png)
 
 먼저 Java 가 있는지 확인하고 없다면 설치해줍니다.  
 
@@ -401,7 +406,7 @@ sudo service codedeploy-agent status
 ```
 
 
-[image:2AE8198D-6948-4AA1-A5E4-ACEDA76E7E40-390-00001047F7E3DB0C/D74115AB-6FF0-4B4A-8490-A5031F030E13.png]
+![](./images/ACN_20.png)
 
 CodeDeploy Agent 가 실행되었음을 확인할 수 있습니다!  
 
@@ -420,27 +425,27 @@ IAM 사용자는 아이디/비밀번호 기반으로 외부 프로그램이 사�
 
 다음과 같이 IAM 의 역할로 이동하여 역할을 만들어 보겠습니다.  
 
-[image:A4512DEE-C496-4947-9BE3-0F93F9E8EF12-390-000010AB678C325C/5EC17447-C3D1-439C-ABAF-F73449388E1F.png]
+![](./images/ACN_21.png)
 
 사용 사례에서 EC2 를 선택합니다.  
 
-[image:AE3FB67E-FBEB-492E-BC88-F320676DF9BD-390-000010BB0D3065B2/5F7B6D5F-5E33-4C9E-8309-00EBB0D56DA1.png]
+![](./images/ACN_22.png)
 
 S3 와 CodeDeploy 에 대한 권한 정책을 검색하여 추가합니다.  
 
-[image:6044ACCF-A773-4BB4-BF9D-C2352D8BB41A-390-000010D33C606EF9/DAA8BA3F-3B27-4EC2-9F7C-67C51E72D28E.png]
+![](./images/ACN_23.png)
 
 적당한 태그와 역할 이름을 설정하고 역할 만들기를 선택합니다.  
 
-[image:F4755D14-138C-44F4-B5C3-6F1B13014289-390-00001124A2C12986/8ACA77CE-818F-45BA-8DBE-593C67A9C315.png]
+![](./images/ACN_24.png)
 
 역할을 생성했다면 EC2 대시보드로 돌아와 해당 EC2 우클릭 - 인스턴스 설정 - IAM 역할 연결/바꾸기 를 선택합니다.  
 
-[image:D2B929C4-048B-4DA1-A418-32FA0A2A4DDF-390-0000115A3048FA49/229C9F67-2ED5-4683-9644-360D0994F93E.png]
+![](./images/ACN_25.png)
 
 방금 생성했던 IAM 역할을 부여합니다.  
 
-[image:DDDC1384-C0E5-4FCD-8DEA-5A763352BB63-390-0000117C6DB0A2A4/1CA93734-12C4-41D0-ACA8-F2ABE2550AD3.png]
+![](./images/ACN_26.png)
 
 
 ### CodeDeploy IAM 역할 생성하기
@@ -450,12 +455,12 @@ S3 와 CodeDeploy 에 대한 권한 정책을 검색하여 추가합니다.
 CodeDeploy 애플리케이션을 생성하기 전에, 앞에서와 마찬가지로 CodeDeploy를 위한 IAM Role이 필요합니다.  
 다시 IAM - 역할 - 역할 만들기 로 이동하여, 아래쪽의 CodeDeploy 선택, 사용 사례도 CodeDeploy를 선택하고 다음으로 넘어갑니다.  
 
-[image:1161A81B-893B-40B6-AD4D-0EBD6652F377-400-0000121CDEC045F3/96F4386F-8785-4990-A273-2F338DC514ED.png]
+![](./images/ACN_27.png)
 
 나머지는 방금전까지 했던 과정과 동일합니다.  
 역할의 이름을 정하고 역할을 생성합니다.  
 
-[image:F6763DA4-E929-47C9-874B-906B292FA22A-400-00001234B9C33740/9DF4C003-373A-4D3E-BF8A-A8C430C95BA0.png]
+![](./images/ACN_28.png)
 
 
 ### CodeDeploy 애플리케이션 생성하기
@@ -463,11 +468,11 @@ CodeDeploy 애플리케이션을 생성하기 전에, 앞에서와 마찬가지�
 다음으로 CodeDeploy 애플리케이션을 생성하겠습니다.  
 CodeDeploy - 애플리케이션 - 애플리케이션 생성 에서 이름과 EC2를 선택하고 생성을 진행합니다.  
 
-[image:AD009BCB-AB6A-4712-9B02-3D67D35423D7-400-0000125C305832E6/F2381C28-A6C5-4017-A1EC-FA0AED5046F1.png]
+![](./images/ACN_29.png)
 
 다음으로는 만들어진 애플리케이션에서 **배포 그룹 생성**을 클릭합니다.  
 
-[image:5CC45F18-60EA-4A44-830F-76EA9F30C3CE-400-000012C7EB803CD7/846E12BB-4665-49BF-AE87-43C4AE977C11.png]
+![](./images/ACN_30.png)
 
 배포 그룹 생성 화면에서 이름과, 방금 만들었던 IAM 역할을 연결합니다.  
 우리는 최소 단위의 무중단 배포를 CodeDeploy가 아닌 Nginx를 통해 구현할 것이기 때문에, 지금은 일단 현재 위치 배포를 선택하고 넘어갑니다.  
@@ -476,12 +481,12 @@ CodeDeploy - 애플리케이션 - 애플리케이션 생성 에서 이름과 EC2
 > 다만 지금 우리는 서버를 여러 대 띄우는 방식이 아니라, 하나의 EC2 내부에서 두 개의 포트에 WAS를 띄우고 스위칭하는 방식을 쓸 것이기 때문에 CodeDeploy가 무중단 배포의 역할을 가지고 있지는 않습니다.  
 
 
-[image:49B01BF3-CEE7-41D3-BD03-5F29E49B9679-400-00001302677FC1C3/BE496212-E02E-48EB-AC91-35E66A9D3CFB.png]
+![](./images/ACN_31.png)
 
 환경 구성은 EC2를 선택하고 태그에는 EC2 인스턴스에 설정했던 태그를 걸어줍니다.  
 해당 태그를 기준으로 CodeDeploy가 배포를 진행합니다.  
 
-[image:6457EFB7-C92F-4CD6-99E3-DB20C3BD300F-400-000014C739E6D408/5F425E6B-73B7-4AF6-BFB8-56E918CBD09A.png]
+![](./images/ACN_32.png)
 
 
 배포 설정은 여러 대의 서버를 어떤 단계에 따라 순차적으로 배포할 것인지를 선택하는 설정인데요.  
@@ -489,7 +494,7 @@ CodeDeploy - 애플리케이션 - 애플리케이션 생성 에서 이름과 EC2
 
 로드밸런서는 없기 때문에 활성화를 해제하고 배포 그룹을 생성합니다.  
 
-[image:4D9A5131-CD8E-4B36-B21A-AEDBE807225A-400-000013BD99BCD918/10FFF0B9-3601-4F4F-83F2-788EA42DC587.png]
+![](./images/ACN_33.png)
 
 
 ### 스크립트 추가하기
@@ -500,7 +505,7 @@ CodeDeploy - 애플리케이션 - 애플리케이션 생성 에서 이름과 EC2
 먼저 프로젝트의 최상단에 `appspec.yml`을 생성합니다.  
 appspec.yml은 CodeDeploy Agent가 참조하면서 배포를 진행하는 명세서입니다.  
 
-[image:BA284EC1-443F-4B45-BC09-C58B30328580-400-00001535D74E8643/A34A34C9-E987-41A2-9B0F-229E0A405A2D.png]
+![](./images/ACN_34.png)
 
 기본적인 appspec.yml을 다음과 같이 작성합니다.  
 다음 단계인 Nginx 적용 단계에서 스크립트를 추가적으로 작성하겠습니다.  
@@ -602,13 +607,13 @@ sudo service codedeploy-agent restart
 
 그리고 나서 Github Actions의 workflow를 시작하고 잠시 기다리면!  
 
-[image:7FC24D4D-F1EA-41F9-BC8E-9BE1746699C4-400-000016575087DB50/84E68BF6-8D1F-46E9-B51F-1AD091F55044.png]
+![](./images/ACN_35.png)
 
 CodeDeploy의 배포가 성공한 것을 볼 수 있습니다!  
 
 EC2에 접속해서 한번 확인해 보겠습니다.  
 
-[image:BF0D954B-6159-4832-9665-AF0AB96602BF-370-000025FE8CB211D9/8AD1C1C9-2DE6-4CD2-BBCF-A47ECD28B2F4.png]
+![](./images/ACN_36.png)
 
 ec2-user home 디렉토리에 S3에서 받아온 프로젝트가 있는 것을 확인할 수 있습니다!  
 물론 아직 진짜 배포를 하도록 스크립트를 짜지는 않았지만, 적어도 각 서비스 간 통신은 잘 이루어졌다고 생각할 수 있습니다.  
@@ -624,7 +629,7 @@ ec2-user home 디렉토리에 S3에서 받아온 프로젝트가 있는 것을 �
 
 ### 소개
 
-[image:77DA55B8-FD1D-4AE5-BE3C-81BB022B69B9-370-000000E117BEC81F/1B5E8B6E-C152-4A4F-94FB-CE02B8133905.png]
+![](./images/ACN_37.png)
 
 Nginx는 널리 쓰이는 웹 서버 중 하나입니다.  
 동적 처리를 주로 담당하는 WAS(Web Application Server)와는 다르게 웹 서버(Web Server)는 정적 자원에 대한 응답을 내려주는 역할을 가지고 있는데요.  
@@ -644,7 +649,7 @@ sudo yum install nginx
 
 그럼 설치가 되는 듯 하였으나, 다음과 같이 Amazon Linux 에서의 설치법을 따로 안내해줍니다.  
 
-[image:8AAC5886-1600-417A-A782-C73F5D3E4802-370-000002666E1420F8/621AEA6C-993E-4351-B593-3F481D72469A.png]
+![](./images/ACN_38.png)
 
 안내대로 다시 커맨드를 입력합니다.  
 
@@ -664,7 +669,7 @@ sudo vim /etc/nginx/nginx.conf
 
 다음과 같이 스크립트를 추가하겠습니다.  
 
-[image:B830D45B-62FB-4A73-9A95-41403883B45C-370-0000287A967E9D5D/A4843005-FC8E-432C-B3DB-0876528D0531.png]
+![](./images/ACN_39.png)
 
 ```sh
 include /home/ec2-user/service_url.inc;
@@ -747,7 +752,7 @@ ApplicationStart라는 수명 주기에 세 가지 스크립트를 차례로 실
 
 프로젝트 최상단에 scripts 라는 디렉토리를 만들고 다음과 같이 세 개의 파일을 만들겠습니다!  
 
-[image:C2B76624-3D42-4C78-B2AB-FB2D291CEBE5-370-000024E18646AE05/4EE67E5A-E983-4855-82DA-F19221A60D8C.png]
+![](./images/ACN_40.png)
 
 
 ```sh
@@ -870,46 +875,46 @@ echo "> Nginx reloaded."
 	- 새로 띄운 WAS의 포트를 nginx가 읽을 수 있도록 service_url.inc에 내용을 덮어씁니다. 
 
 
-첫 서버 8081로 띄우기
+이제 모든 준비가 끝났습니다!  
+무중단 배포를 진행하기 전에, 현재 서버에 아무런 WAS가 떠 있지 않기 때문에 8081 포트에 WAS를 새로 한번 띄워보겠습니다.  
 
+EC2에 접속하여 프로젝트 내에 있는 jar 파일을 실행하겠습니다.  
 
+```sh
+nohup java -jar -Dserver.port=8081 /home/ec2-user/playground-logging/build/libs/* &
+```
 
-[image:25924D0B-ECDC-45F5-972B-B66BB8FD0667-370-0000274CD2E6A47B/F8FC7B0E-9AEB-4976-A9B3-B87CDEC4FF77.png]
+nginx가 바라보도록 설정한 service_url.inc 파일이 8081포트를 가리키고 있기 때문에, 8081로 서버를 띄운 후 EC2 인스턴스의 퍼블릭 DNS로 접속해 보시면 다음과 같이 우리가 만들었던 Controller의 리턴값이 잘 나오는 것을 볼 수 있습니다.  
 
+![](./images/ACN_41.png)
 
+이제 드디어 무중단 배포를 진행해볼 차례입니다.  
 
+application.yml의 버전을 0.0.2로 올리고, 커밋 - 푸시 후 Github Actions에서 배포를 진행해봅시다.  
 
+![](./images/ACN_42.png)
 
-[image:77ADDEB6-FCB4-4A52-A91C-89FCF0B2607F-370-00002781B9353988/B1617923-350B-4DF3-B111-F0724320DCB4.png]
+Github Actions 의 작업이 끝나고나서, CodeDeploy가 배포를 시작할 때 브라우저에서 지속적으로 새로고침을 눌러보시면!  
 
+![](./images/ACN_43.png)
 
+서버의 중단 없이 한순간에 버전이 바뀌는 것을 볼 수 있습니다! (드디어!)  
 
+`ps -ef | grep java` 커맨드를 통해 배포 전과 배포 후를 비교해보면 8082 포트로 새로운 서버가 실행된 것을 볼 수 있습니다.  
 
+![](./images/ACN_44.png)
 
-[image:80ABFD34-BEEB-4005-A1D9-20901E950090-370-000028CDB097BBA2/1D35AEAF-CD54-445A-8C0F-8F94AF3F7573.png]
+그리고 `tail service_url.inc`로 내용을 확인해보시면 우리가 작성한 스크립트가 Nginx가 바라보는 포트를 8082로 변경한 것도 보실 수 있습니다!  
 
+![](./images/ACN_45.png)
 
+이제 그 다음 배포를 한번 더 진행한다고 하면, 새로운 서버는 기존 8081 포트의 애플리케이션을 종료하고 새로 뜰 것이고, Nginx는 8081 포트를 서비스할 것입니다.  
 
+현재 이 배포 구성은 V2 버전의 WAS가 서비스를 하고 있으면서 이전 버전인 V1의 WAS가 서비스를 하지 않는데도 백그라운드에 그대로 떠 있는 상황인데요.  
+배포 직후 모니터링 과정에서 롤백해야 하는 상황이 온다면 롤백용 스크립트를 추가해서 V1 버전의 WAS를 다시 서비스하도록 Nginx를 reload하는 방식을 적용할 수도 있습니다.  
+또는 서비스 하는 내내 두 개의 WAS를 불필요하게 띄워놓을 필요가 없겠다는 생각이 드신다면, 배포 직후 V1 버전의 WAS가 롤백 대비용으로 떠 있다가, 모니터링을 진행하고 일정 시간이 지나면 해당 WAS를 종료하는 스크립트도 추가할 수 있을 것입니다.  
 
-
-[image:8ADC7F59-98E8-418D-881F-F8871487F72F-370-000028FC8C836CA4/726DD374-05BC-4E98-B27D-33E0E92AE00F.png]
-
-
-
-[image:0AD9911D-43C1-40B9-B236-AB05AF74A23A-370-000029154B42ED78/7BA08EAE-882E-44D4-B1E4-8A921262756B.png]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+이번 Github Actions + CodeDeploy + Nginx 를 이용해 최소 규모로 무중단 배포하기 시리즈는 여기까지입니다!  
+긴 글 읽어주셔서 감사합니다 :)  
 
 
