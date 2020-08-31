@@ -165,6 +165,80 @@ Gradle의 스크립트 변수는 다음과 같다.
 
 ---
 
+## Gradle 기본
+
+### Gradle의 Task
+
+기본 task는 다음과 같이 지정한다.  
+참고로 Gradle 5.0 미만에서는 leftshift(<<) 연산자로 task를 지정했으나 해당 버전부터 leftshift 연산자는 F/O 되었다.  
+
+```gradle
+task hello {
+    doLast {
+        println 'Hello Gradle!'
+    }
+}
+```
+
+따라서 항상 doFirst, doLast 등으로 task임을 지정해 줘야 한다.  
+해당 블록을 지정하지 않으면 task가 아닌 설정(Configure)으로 인식이 된다.  
+
+```gradle
+task hello {
+    println 'Configure' // configure
+
+    doLast {
+        println 'Hello Gradle!' // task
+    }
+}
+```
+
+Gradle 라이프 사이클에서 설정은 프로젝트 설정 단계에서 수행되고 실행은 태스크 실행 단계에서 수행되기 때문에 configure 부분이 task보다 먼저 실행된다.  
+
+그리고 다음과 같이 dependsOn으로 의존 관계를 지정할 수 있다.  
+
+```gradle
+3.times { counter ->
+    task "task$counter" {
+        doLast {
+            println "task counter : $counter"
+        }
+    }
+}
+
+task1.dependsOn task0, task2
+
+// 실행 결과
+// task0은 단독 실행
+// task2도 단독 실행
+// task1을 실행하면 task0, task2도 같이 실행
+```
+
+주요 키워드를 정리해 보자.  
+
+- ext
+	- 특정 task 안에 확장 변수를 지정하고 다른 task에서 가져다가 쓸 수 있다.
+- defaultTask 'task1' 'task2'
+	- 빌드 수행 시 task 이름을 지정하지 않더라도 기본 실행되도록 할 수 있다.
+- task.onlyIf
+	- onlyIf 블록에 해당 task의 실행 조건을 걸어 조건에 따른 빌드를 구성할 수 있다.  
+- mustRunAfter, shouldRunAfter
+	- 두 task를 순서를 지정해서 실행할 수 있다.
+	- 의존 관계와 다른 점은 두 task를 모두 실행하도록 명시해야 한다는 것이다.
+- task1.finalizedBy task2
+	- finally 와 같은 개념으로 task1 실행 중 에러가 나더라도 반드시 task2를 실행하고 종료할 수 있게 한다.
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
