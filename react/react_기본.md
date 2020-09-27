@@ -82,12 +82,86 @@ export default App;
 Component를 만드는 방법은 class를 통해서 만드는 방법과 함수를 통해 만드는 방법, 두 가지가 있다.  
 
 
+### JSX 기본 문법
 
+```js
+import React, { Component, Fragment } from 'react';
 
+class App extends Component {
+  render() {
+    const name = "wbluke";
+    return (
+      <Fragment>
+        <input type="text" />
+        <div>
+          hello {name}
+        </div>
+        <div>
+          {
+            1 + 1 === 2 
+              ? (<div>맞아요!</div>)
+              : (<div>틀려요!</div>)
+          }
+        </div>
+        <div>
+          {
+            1 + 1 === 2 && (<div>맞아요!</div>)
+          }
+        </div>
+        <div>
+          {
+            (() => {
+              if (value === 1) return (<div>하나</div>);
+              if (value === 2) return (<div>둘</div>);
+            })()
+          }
+        </div>
+      </Fragment>
+    );
+  }
+}
 
+export default App;
+```
 
+- 태그는 꼭 닫혀있어야 한다.
+- 두 개 이상의 엘리먼트는 무조건 하나의 엘리먼트로 감싸져 있어야 한다.
+	- div 대신 렌더링 후 아무것도 남지 않는 Fragment 를 사용할 수 있다.
+- 중괄호로 JS 값을 사용할 수 있다.
+	- 참고 : var는 scope가 블록 단위가 아니라 함수 단위이다. 이제는 쓰지 않고, 블록 단위로 지원하는 let과 const를 사용한다.
+- JSX 내부에서 조건부 렌더링을 하려면 삼항 연산자나 AND 연산자를 사용한다.
+	- if문을 사용하려면 IIFE(즉시 실행 함수)를 사용해야 한다.
 
+```js
+import React, { Component } from 'react';
 
+class App extends Component {
+  render() {
+    const style = {
+      backgroundColor: 'black',
+      padding: '16px',
+      color: 'white',
+      fontSize: '36px'
+    };
+
+    return (
+      <div style={style}>
+        {/* 주석은 이렇게 */}
+        안녕하세요!
+      </div>
+    );
+  }
+}
+
+export default App;
+```
+
+- style은 객체 형태로 넣어주고, camelCase로 속성명을 지정한다.
+	- 숫자값도 단위까지 지정하여 문자열로 넣어준다.
+	- 사용할 때는 `style={style}` 로 사용한다.
+- 만약 별도의 css 파일을 만들어서, class name을 지정하고 싶다면 class가 아니라 `className="App"` 으로 지정한다.
+- 주석은 멀티라인 문법으로 작성해야 하고, 중괄호 안에 넣어주어야 한다.
+	- 태그 안에 주석을 사용할 때는 `//`로 작성할 수 있다.
 
 
 
