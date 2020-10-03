@@ -164,6 +164,166 @@ export default App;
 	- 태그 안에 주석을 사용할 때는 `//`로 작성할 수 있다.
 
 
+### Props
+
+```html
+<Child value="value" />
+```
+
+부모가 자식에게 전달하는 속성을 `props`라고 한다.  
+
+```js
+// MyName.js
+import React, { Component } from 'react';
+
+class MyName extends Component {
+
+  static defaultProps = { // default 값 설정
+    name: '기본이름'
+  }
+
+  render() {
+    return (
+      <div>
+         안녕하세요! 제 이름은 <b>{this.props.name}</b> 입니다.
+      </div>
+    );
+  }
+}
+
+// MyName.defaultProps = {
+//   name: '기본이름'
+// };
+
+export default MyName;
+```
+
+```js
+// App.js
+import React, { Component } from 'react';
+import MyName from './MyName';
+
+class App extends Component {
+  render() {
+    return <MyName name="리액트" />;
+  }
+}
+
+export default App;
+```
+
+함수형 컴포넌트로 작성한다면 다음과 같이 작성할 수 있다.  
+
+```js
+// MyName.js
+import React from 'react';
+
+class MyName = ({ name }) => { // 구조 분해 할당
+    return <div>안녕하세요! 제 이름은 <b>{this.props.name}</b> 입니다.</div>;
+};
+
+MyName.defaultProps = {
+  name: '기본이름'
+};
+
+export default MyName;
+```
+
+함수형 컴포넌트에서는 더이상 Component를 import하지 않아도 된다.  
+
+그리고 함수형 컴포넌트에서는 State와 라이프사이클 기능이 빠져있다.  
+대신 함수형 컴포넌트가 초기 mount 속도가 미세하게 조금 더 빠르다.  
+불필요한 기능이 없기 때문에 메모리 자원도 덜 쓴다.  
+따라서 간단히 어떤 값을 받아와서 보여주기만 하는 심플한 컴포넌트라면 활용하면 좋다.  
+
+
+### State
+
+State는 내부에서 변경할 수 있다.  
+변경할 때는 언제나 setState()라는 함수를 사용한다.  
+
+```js
+// Counter.js
+import React, { Component } from 'react';
+
+class Counter extends Component {
+
+  state = {
+    number: 0
+  }
+
+// custom 함수는 람다 함수로 작성해야 한다. 안그러면 함수 내부에서 this를 찾을 수 없다.
+// 아니면 아래와 같은 생성자 작업으로 함수 내부에서 this를 사용할 수 있도록 해줘야 한다.
+/*
+  constructor(props) {
+    super(props);
+    this.handleIncrease = this.handleIncrease.bind(this);
+    this.handleDecrease = this.handleDecrease.bind(this);
+  }
+*/
+
+  handleIncrease = () => {
+    this.setState({
+      number: this.state.number + 1
+    })
+  }
+
+  handleDecrease = () => {
+    this.setState({
+      number: this.state.number - 1
+    })    
+  }
+
+  render() {
+    return {
+      <div>
+        <h1>카운터</h1>
+        <div>값: {this.state.number}</div>
+        <button onClick={this.handleIncrease}>+</button>
+        <button onClick={this.handleDecrease}>-</button>
+      </div>
+    }
+  }
+}
+
+export default Counter;
+```
+
+```js
+// App.js
+import React, { Component } from 'react';
+import MyName from './MyName';
+
+class App extends Component {
+  render() {
+    return <Counter />;
+  }
+}
+
+export default App;
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
