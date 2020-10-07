@@ -178,6 +178,89 @@ group by 를 생각하면 된다.
 - 중첩으로 aggs를 넣을 수 있다.
 - stats 명령어는 통계를 의미한다. 따라서 이는 팀별로 통계를 볼 수 있는 aggregation이다.
 
+---
+
+## 키바나 (Kibana)
+
+### 설치
+
+키바나 설치 후 설정 파일에서 다음 두 가지를 확인해야 한다.  
+설정 파일 위치는 `/etc/kibana/kibana.yml` 이다.  
+
+- elasticsearch.url
+	- 같은 서버라면 `http://localhost:9200`
+- server.host
+	- 같은 서버라면 `localhost`
+
+kibana는 다음과 같이 시작하면 된다.  
+
+```bash
+sudo /usr/share/kibana/bin/kibana
+```
+
+kibana의 기본 포트는 5601이다.  
+
+---
+
+## Logstash
+
+### 개요
+
+Logstash는 input을 담당한다.  
+Logstash는 여러 데이터셋을 흡수해, 자기가 원하는 형태로 데이터를 가공할 수 있고, 가공한 데이터를 ES로 넘겨줄 수 있다.  
+
+Logstash에는 config 파일이 필요하다.  
+
+```json
+input {
+  stdin { }
+}
+output {
+  stdout { }
+}
+```
+
+표준입출력을 사용한다는 의미의 config 파일이다.  
+config 파일에는 다음과 같이 세 파트가 존재한다.  
+
+- input
+	- 데이터의 입력을 받을 file이나 application 설정을 준다.
+- filter
+	- 구분자, column, 변환 등을 설정할 수 있다.
+- output
+	- 표준입출력을 통한 콘솔 출력, ES 등으로 보내도록 설정할 수 있다.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
