@@ -303,8 +303,133 @@ class App extends Component {
 export default App;
 ```
 
+---
 
+## LifeCycle API
 
+[image:38742F79-DB9C-4B82-B618-327FA5F3831C-392-000029C5D750C5C3/B662E3C5-FDC0-4F3E-A253-9EB0724F8BBA.png]
+![](./images/lifecycle.png)
+
+- constructor
+	- 컴포넌트가 처음 브라우저에 나타날 때
+	- State 초기 설정, 미리 해야하는 작업들
+- getDerivedStateFromProps
+	- props로 받은 값을 state에 그대로 동기화를 시키고 싶은 경우
+	- Mounting 단계, Updating 단계 모두 실행된다.
+- render
+	- 어떤 DOM을 만들고 어떤 값을 정의할지 정의한다.
+- componentDidMount
+	- 외부 라이브러리를 사용할 때 특정 DOM에 어떤 처리를 한다던지, ajax 요청 등을 할 때 사용한다.
+	- 컴포넌트가 나타난 다음에 어떤 작업을 할지를 명시한다. 이벤트 리스닝, API 요청 등
+- **shouldComponentUpdate**
+	- 컴포넌트가 업데이트되는 성능을 최적화시키고 싶을 때 사용한다.
+	- 바뀌지 않은 컴포넌트에 대해서는 render 함수를 타지 않도록 한다. (true, false 반환)
+- getSnapshotBeforeUpdate
+	- 렌더링이 끝난 후 브라우저에 반영되기 직전에 호출되는 함수
+- componentDidUpdate
+	- 컴포넌트 업데이트 후 호출되는 함수
+- componentWillUnmount
+	- componentDidMount에서 설정한 리스너를 해제하는 역할
+
+```js
+import React, { Component } from 'react';
+import MyComponent from './MyComponent';
+
+class App extends Component {
+  state = {
+    counter: 1,
+    error: false
+  }
+
+  // 에러가 생길 경우 Catch하는 함수 (알람 API 등의 처리)
+  // 에러가 발생할 수 있는 Component의 부모 Component에서 작성해야 한다.
+  componentDidCatch(error, info) {
+    this.setState({
+      error: true
+    });
+  };
+
+  constructor(props) {
+    super(props);
+    console.log('constructor');
+  }
+
+  componentDidMount() {
+    console.log('componentDidMount');
+  }
+
+  handleClick = () => {
+    this.setState({
+      counter: this.state.counter + 1
+    })
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div>에러가 났어요</div>
+      )
+    }
+    return (
+      <div>
+        { this.state.counter < 15 && <MyComponent value={this.state.counter} /> }
+        <button onClick={this.handleClick}>Click Me</button>
+      </div>
+    );
+  }
+}
+
+export default App;
+```
+
+```js
+// MyComponent.js
+
+import React, { Component } from 'react';
+
+class MyComponent extends Component {
+  state = {
+    value: 0
+  };
+
+  // static으로 선언
+  // 다음으로 들어오는 props와 이전에 있던 state를 인자로 받는다.
+  static getDerivedStateFromProps(nextProps, prevState) {
+    if (prevState.value !== nextProps.value) {
+      return {
+        value: nextProps.value
+      }
+    }
+    return null;
+  }
+
+  shouldComponentUpdate(nextProps, nextState) {
+    if (nextProps.value === 10) return false; // counter가 10이 되면 rendering을 안한다.
+    return true;
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    if (this.props.value !== prevProps.value) {
+      console.log('value 값이 바꼈다!', this.props.value);
+    }
+  }
+
+  componentWillUnmount() { // counter가 15면 Component가 사라지면서 호출
+    console.log('Good Bye');
+  },
+
+  render() {
+    return (
+      <div>
+        <p>props: {this.props.value}</p>
+        <p>state: {this.state.value}</p> 
+      </div>
+    )
+  }
+}
+
+export default MyComponent;
+```
 
 
 
