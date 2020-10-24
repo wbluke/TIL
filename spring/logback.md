@@ -3,6 +3,175 @@
 
 ---
 
+## Logback
+
+안녕하세요~ 이번 포스팅에서는 Logback의 구조와 사용 방법에 대해서 정리해보려고 합니다.  
+모든 내용을 다 다룰 수는 없지만, 기본적인 구조를 인지하고 있으면 나머지는 필요할 때마다 찾아보면서 적용할 수 있습니다.  
+특히 Logback은 공식 문서가 꼼꼼하게 되어있는 편이어서, 없는 것 빼고 다 있다는 느낌이 들기도 합니다. ~~영어지만요~~  
+
+
+### Logback이란?
+
+먼저 Logback이 어떤 것인지 잠깐 짚고 넘어가도록 하겠습니다.  
+간단히 말해서 java.util.logging, log4j, log4j2를 잇는 **자바 로깅 프레임워크**인데요.  
+위 유틸들에 비해서 좋은 성능을 가지고 있으며, 특히 Spring boot에서는 기본 로깅 모듈로 채택하고 있기 때문에 많은 분들이 알게 모르게 Spring boot를 사용하시면서 접하셨을 것입니다.  
+
+> spring-boot-starter-web 패키지 안에 Logback이 포함돼 있습니다.  
+
+
+### Logback으로 로그 관리하기
+
+Logback으로 정확히 뭘 할 수 있는가? 에 대해서 생각해보겠습니다.  
+로그라는 것은 사용하기에 따라 애플리케이션에서 일어나는 일들을 기록으로 남겨서, 실시간으로, 혹은 과거에 일어났던 사건을 역으로 트래킹할 수 있는 좋은 자료라고 할 수 있는데요.  
+그렇기에 로그의 내용에 따라 **적정한 로그 레벨과 로깅 위치**를 결정하는 것은 아주 중요한 일일 것입니다.  
+
+더불어 애플리케이션에 로그를 잘 남기는 것도 매우 중요하지만, 잘 남긴 로그를 어디서 어떤 방식으로 보관할지, 어떻게 이 로그들을 확인하고 분석할 수 있을지 고민하는 일도 상당히 중요한 일입니다.  
+이를 위해 Logback 설정 파일로 다음과 같은 것들을 지정할 수 있습니다.  
+
+- 로그를 콘솔에 출력만 할지, 파일로 남길지, 네트워크를 통해 외부로 바로 전달할지 등을 결정하기
+- Spring Profile 별로 로그 설정을 다르게 가져가기
+- 일정 로그 레벨 이상의 로그들만 남기기
+- 로그의 형식 지정하기
+- 일정 시간이 지날 때마다, 시간 별로 로그 파일을 정리하거나 로그 파일을 압축해서 보관하기
+
+또한 이렇게 로그를 파일로 남기면, [ELK Stack](https://www.elastic.co/kr/what-is/elk-stack) 같은 데이터 모니터링 도구를 활용해서 필요한 로그를 검색하거나 분석할 수도 있습니다.  
+
+
+## Logback 설정하기
+
+### logback-spring.xml
+
+이제 Spring boot에서 Logback 설정하는 법을 알아보도록 하겠습니다.  
+먼저 build.gradle에는 다음과 같이 spring-boot-starter-web 을 지정하도록 하겠습니다.  
+그리고 lombok 사용을 위한 설정도 같이 넣어주도록 하겠습니다.  
+
+```javascript
+// build.gradle
+
+dependencies {
+    implementation 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    runtimeOnly 'com.h2database:h2'
+
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+}
+```
+
+그리고 'src/main/resources/' 밑에 `logback-spring-xml` 파일을 생성합니다.  
+일반적으로 Logback 설정은 logback.xml로 하지만, Spring boot에서의 Logback 관리를 위해서는 logback-spring.xml로 작성해야 합니다.  
+
+[image:545F5194-5AF8-4297-A83A-06AA5B5ED50B-366-00000A1C856B0B06/2A5A79A7-0B89-40A3-9DA2-E1CC030BB44D.png]
+
+제가 작성할 logback-spring.xml의 내용은 다음과 같습니다.  
+하나씩 살펴보도록 하겠습니다!  
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <property name="LOG_PATH" value="./logs"/>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+        </encoder>
+        <file>${LOG_PATH}/logback.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/application-%d{yyyy-MM-dd-HH-mm}.%i.log</fileNamePattern>
+            <maxHistory>10</maxHistory>
+            <totalSizeCap>${LOG_FILE_TOTAL_SIZE_CAP:-0}</totalSizeCap>
+            <cleanHistoryOnStart>${LOG_FILE_CLEAN_HISTORY_ON_START:-false}</cleanHistoryOnStart>
+            <maxFileSize>${LOG_FILE_MAX_SIZE:-10MB}</maxFileSize>
+        </rollingPolicy>
+    </appender>
+
+    <!-- Spring Profiles -->
+    <springProfile name="local">
+        <include resource="org/springframework/boot/logging/logback/base.xml"/>
+    </springProfile>
+
+    <springProfile name="develop">
+        <property name="LOG_PATH" value="/home/ec2-user/logs"/>
+
+        <root level="INFO">
+            <appender-ref ref="FILE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="prod">
+        <property name="LOG_PATH" value="/home/ec2-user/logs"/>
+
+        <root level="INFO">
+            <appender-ref ref="FILE"/>
+        </root>
+    </springProfile>
+
+</configuration>
+```
+
+
+### logback default xml
+
+가장 먼저 보이는 include 태그에는, defaults.xml과 console-appender.xml을 불러오는 것을 확인하실 수 있는데요.  
+`org.springframework.boot.logging.logback` 패키지에는 다음과 같은 4개의 기본적인 xml 설정파일이 존재합니다.  
+
+[image:D020134A-8B5F-439F-8FDE-C6DBB06558F7-366-00001304BF89FEEF/BA1DD5D3-A394-4D2E-A443-260DC7C34991.png]
+
+이 중에서 `base.xml`이 나머지 세 개의 파일을 사용하고 있는 구조인데요.  
+내용은 다음과 같습니다.  
+
+```xml
+<!-- base.xml -->
+
+<included>
+	<include resource="org/springframework/boot/logging/logback/defaults.xml" />
+	<property name="LOG_FILE" value="${LOG_FILE:-${LOG_PATH:-${LOG_TEMP:-${java.io.tmpdir:-/tmp}}}/spring.log}"/>
+	<include resource="org/springframework/boot/logging/logback/console-appender.xml" />
+	<include resource="org/springframework/boot/logging/logback/file-appender.xml" />
+	<root level="INFO">
+		<appender-ref ref="CONSOLE" />
+		<appender-ref ref="FILE" />
+	</root>
+</included>
+```
+
+
+```xml
+<!-- defaults.xml -->
+
+<included>
+	<conversionRule conversionWord="clr" converterClass="org.springframework.boot.logging.logback.ColorConverter" />
+	<conversionRule conversionWord="wex" converterClass="org.springframework.boot.logging.logback.WhitespaceThrowableProxyConverter" />
+	<conversionRule conversionWord="wEx" converterClass="org.springframework.boot.logging.logback.ExtendedWhitespaceThrowableProxyConverter" />
+	<property name="CONSOLE_LOG_PATTERN" value="${CONSOLE_LOG_PATTERN:-%clr(%d{${LOG_DATEFORMAT_PATTERN:-yyyy-MM-dd HH:mm:ss.SSS}}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}}"/>
+	<property name="FILE_LOG_PATTERN" value="${FILE_LOG_PATTERN:-%d{${LOG_DATEFORMAT_PATTERN:-yyyy-MM-dd HH:mm:ss.SSS}} ${LOG_LEVEL_PATTERN:-%5p} ${PID:- } --- [%t] %-40.40logger{39} : %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}}"/>
+
+  <!-- 생략 -->
+</included>
+```
+
+
+### springProfile
+
+하단부에 보이는 springProfile은 application.yml에서 설정한 Profile 별로 로그 생성 전략을 다르게 설정할 수 있는 태그입니다.  
+
+local profile에서는 `base.xml`이라는 파일을 include했고, develop, prod profile에서는 로그가 쌓일 기본 디렉토리와 로그 레벨을 설정했습니다.  
+
+
+
+### Appender의 상속 구조
+
+
+
+
+### Appender의 RollingPolicy
+
+
+---
+
 - Logback은 무엇인가?  
 	- java.util.logging, log4j, log4j2에 이은 자바 로깅 프레임워크다.
 	- 위 유틸들에 비해 좋은 성능을 가지고 있으며, Spring boot에서는 기본 로깅 모듈로 채택하고 있다. (spring-boot-starter-web)
@@ -52,6 +221,8 @@
 			- 언제 rollover를 발생시킬지를 정의한다.
 
 RollingPolicy는 인터페이스이고, 이를 구현하는 여러 구현체들이 또 존재한다.  
+
+
 
 - TimeBasedRollingPolicy
 	- 이 자체만으로도 TriggeringPolicy도 구현하고 있다.
