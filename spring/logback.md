@@ -58,10 +58,45 @@ dependencies {
 }
 ```
 
+그리고 로그를 남기기 위한 Controller도 하나 만들어보겠습니다.  
+로그 레벨 별로 엔드 포인트를 하나씩 열어서 로그를 남기도록 하겠습니다.  
+
+```java
+@Slf4j
+@RestController
+public class LoggingController {
+
+    @GetMapping("/log/error")
+    public String logError() {
+        log.error("log error");
+        return "error";
+    }
+
+    @GetMapping("/log/warn")
+    public String logWarn() {
+        log.warn("log warn");
+        return "warn";
+    }
+
+    @GetMapping("/log/info")
+    public String logInfo() {
+        log.info("log info");
+        return "info";
+    }
+
+    @GetMapping("/log/debug")
+    public String logDebug() {
+        log.debug("log debug");
+        return "debug";
+    }
+
+}
+```
+
 그리고 'src/main/resources/' 밑에 `logback-spring-xml` 파일을 생성합니다.  
 일반적으로 Logback 설정은 logback.xml로 하지만, Spring boot에서의 Logback 관리를 위해서는 logback-spring.xml로 작성해야 합니다.  
 
-[image:545F5194-5AF8-4297-A83A-06AA5B5ED50B-366-00000A1C856B0B06/2A5A79A7-0B89-40A3-9DA2-E1CC030BB44D.png]
+![](./images/logback01.png)
 
 제가 작성할 logback-spring.xml의 내용은 다음과 같습니다.  
 하나씩 살펴보도록 하겠습니다!  
@@ -113,12 +148,31 @@ dependencies {
 ```
 
 
-### logback default xml
+### springProfile
 
-가장 먼저 보이는 include 태그에는, defaults.xml과 console-appender.xml을 불러오는 것을 확인하실 수 있는데요.  
+먼저 다른 부분들을 살펴보기 전에, springProfile에 대해서 알아보도록 하겠습니다.  
+하단부에 보이는 springProfile 태그는 application.yml에서 설정한 Profile 별로 로그 생성 전략을 다르게 가져갈 수 있는 태그입니다.  
+
+local profile에서는 `base.xml`이라는 파일을 include했고, develop, prod profile에서는 조금 다른 태그들을 사용하고 있는데요.  
+
+property 태그는 어떤 속성을 정의할 수 있는 태그입니다.  
+develop, prod 각 springProfile 태그 하위에서 LOG_PATH 라는 이름으로 어떤 공간에 로그 파일을 남길지 지정하고 있습니다.  
+이 태그만으로 그렇게 설정이 되는 것은 아니고, 위쪽에 정의된 `Appender`라는 객체에서 사용되는 값을 변수로 정의한 것이라고 보시면 됩니다.  
+
+또 root 태그로 level이라는 속성을 지정하고 있는데요, 기본 로그 레벨을 설정하는 속성입니다.  
+'INFO'로 설정하면 INFO 레벨을 포함한 상위 레벨 로그(INFO, WARN, ERROR, FATAL)를 대상으로 수집하게 됩니다.  
+
+그리고 root 태그 하위에 appender-ref라는 태그가 보이실텐데요, 이는 `Appender` 라는 객체를 사용하겠다는 의미입니다.  
+ref 속성으로 지정한 CONSOLE, FILE이라는 이름의 Appender를 불러와서 사용하겠다는 의미입니다.  
+Appender가 무엇인지에 대해서는 아래에서 계속 알아보도록 하겠습니다!  
+
+
+### Logback Default XML
+
+가장 먼저 보이는 include 태그에서는, defaults.xml과 console-appender.xml을 불러오는 것을 확인하실 수 있는데요.  
 `org.springframework.boot.logging.logback` 패키지에는 다음과 같은 4개의 기본적인 xml 설정파일이 존재합니다.  
 
-[image:D020134A-8B5F-439F-8FDE-C6DBB06558F7-366-00001304BF89FEEF/BA1DD5D3-A394-4D2E-A443-260DC7C34991.png]
+![](./images/logback02.png)
 
 이 중에서 `base.xml`이 나머지 세 개의 파일을 사용하고 있는 구조인데요.  
 내용은 다음과 같습니다.  
@@ -138,6 +192,14 @@ dependencies {
 </included>
 ```
 
+먼저 property 태그에서 LOG_FILE이라는 이름으로 value에 있는 문자열을 지정하고 있습니다.  
+현재 파일에서는 보이지 않는 다른 변수들을 같이 사용하고 있기 때문에 복잡해보일 수 있는데요, 단순히 파일의 위치와 이름을 설정하고 있다고 생각하시면 됩니다.  
+
+> `${LOG_FILE:-***}` 의 의미는 정의된 LOG_FILE 이라는 변수가 외부에 정의되어 있다면 그 값을 사용하고, 아니라면 뒤에 오는 `***`에 해당하는 값을 기본으로 사용하겠다는 의미입니다.
+
+그리고 각각의 include 태그에서 나머지 세 개의 xml 파일을 참조하고 있는 것을 확인할 수 있습니다.  
+
+이어서 defaults.xml의 내용은 다음과 같습니다.  
 
 ```xml
 <!-- defaults.xml -->
@@ -153,76 +215,167 @@ dependencies {
 </included>
 ```
 
+conversionRule 태그와 property 태그가 보이는데요, property의 내용을 보시면 console에 찍을 로그의 패턴과 file에 찍을 로그의 기본적인 패턴을 정의하고 있다는 것을 알 수 있습니다.  
+clr, wex, wEx 등의 기호를 사용하고 있는데, 해당 로그 패턴을 정의할 때 사용하는 컨버터를 conversionRule 태그에서 정의하고 있습니다.  
 
-### springProfile
+> 여기의 `CONSOLE_LOG_PATTERN`이 우리가 하루에도 몇 번씩 보는 콘솔 창의 그 Spring boot 실행 로그 패턴입니다.  
 
-하단부에 보이는 springProfile은 application.yml에서 설정한 Profile 별로 로그 생성 전략을 다르게 설정할 수 있는 태그입니다.  
+마지막으로 console-appender.xml과 file-appender.xml을 보겠습니다.  
 
-local profile에서는 `base.xml`이라는 파일을 include했고, develop, prod profile에서는 로그가 쌓일 기본 디렉토리와 로그 레벨을 설정했습니다.  
+```xml
+<!-- console-appender.xml -->
 
+<included>
+	<appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+		<encoder>
+			<pattern>${CONSOLE_LOG_PATTERN}</pattern>
+		</encoder>
+	</appender>
+</included>
+```
+
+```xml
+<!-- file-appender.xml -->
+
+<included>
+	<appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<encoder>
+			<pattern>${FILE_LOG_PATTERN}</pattern>
+		</encoder>
+		<file>${LOG_FILE}</file>
+		<rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+			<cleanHistoryOnStart>${LOG_FILE_CLEAN_HISTORY_ON_START:-false}</cleanHistoryOnStart>
+			<fileNamePattern>${ROLLING_FILE_NAME_PATTERN:-${LOG_FILE}.%d{yyyy-MM-dd}.%i.gz}</fileNamePattern>
+			<maxFileSize>${LOG_FILE_MAX_SIZE:-10MB}</maxFileSize>
+			<maxHistory>${LOG_FILE_MAX_HISTORY:-7}</maxHistory>
+			<totalSizeCap>${LOG_FILE_TOTAL_SIZE_CAP:-0}</totalSizeCap>
+		</rollingPolicy>
+	</appender>
+</included>
+```
+
+console-appender.xml과 file-appender.xml에서는 `Appender`라는 것을 정의하고, `Encoder`로 위의 defaults.xml에서 정의한 로그 패턴을 지정하고 있는 것을 볼 수 있습니다.  
+이 쯤에서 Appender가 무엇인지 알아보겠습니다.  
+
+
+## Appender?
+
+`Appender`는 Logback이 Logging Event를 발행하도록 위임하는 객체입니다.  
+실제로 Appender는 다음과 같이 간단한 인터페이스입니다.  
+
+```java
+public interface Appender<E> extends LifeCycle, ContextAware, FilterAttachable<E> {
+
+    String getName();
+
+    void doAppend(E event) throws LogbackException;
+
+    void setName(String name);
+
+}
+```
+
+name 기반의 getter, setter와 로그 이벤트를 수집하는 doAppend() 메소드를 가지고 있습니다.  
+Appender의 잘 알려진 구현체들은 아래와 같은 구조를 가지고 있습니다.  
+
+[image:C7F199D5-1A89-478A-82FA-5A3F5505EE5E-370-000004F897B7DADF/D5EAB5E9-8D72-4B19-A0DC-574B8B1B5E6B.png]
+
+![](./images/logback03.png)
 
 
 ### Appender의 상속 구조
 
+Appender의 상속 구조를 하나씩 살펴보겠습니다.  
+
+먼저 `AppenderBase`는 Appender를 구현하고 있는 추상 클래스입니다.  
+
+```java
+// AppenderBase.java
+
+public synchronized void doAppend(E eventObject) {
+  // 생략
+}
+```
+
+Appender의 doAppend() 메소드를 synchronized 키워드를 사용해서 구현하고 있는데요.  
+synchronized 키워드 덕분에 멀티 스레드 환경에서 동일한 Appender를 사용하더라도 안전하게 사용할 수 있습니다.  
+
+하지만 synchronization이 늘 적절한 선택은 아니기 때문에 logback은 AppenderBase와 유사하지만 synchronized 키워드가 없는 구현체인 `UnsynchronizedAppenderBase`를 제공합니다.  
+
+```java
+public class OutputStreamAppender<E> extends UnsynchronizedAppenderBase<E> {
+
+    protected Encoder<E> encoder;
+
+    // 생략
+}
+```
+
+UnsynchronizedAppenderBase를 상속하는 `OutputStreamAppender`는 Event를 OutputStream으로 발행하는 객체입니다.  
+사용자가 직접 생성할 일은 없고, 우리가 주의 깊게 봐야 할 ConsoleAppender와 FileAppender의 부모 클래스가 됩니다.  
+또한 Encoder라는 필드(property)를 가지고 있어서 로그를 어떤 형식으로 남길 것인지를 결정할 수 있습니다.  
+
+> 위에서 넣어준 Encoder 태그가 바로 이 필드를 정의하는 값입니다.  
+
+`ConsoleAppender`는 PrintStream을 사용하여 Console에 로그를 남기는 Appender입니다.  
+ConsoleAppender는 특별하게 살펴볼 내용은 없습니다.  
+
+`FileAppender`는 로그를 파일로 남기는 Appender입니다.  
+
+```java
+public class FileAppender<E> extends OutputStreamAppender<E> {
+
+    public static final long DEFAULT_BUFFER_SIZE = 8192;
+
+    protected boolean append = true;
+    protected String fileName = null;
+    private boolean prudent = false;
+    private FileSize bufferSize = new FileSize(DEFAULT_BUFFER_SIZE);
+
+    // 생략
+}
+```
+
+- append
+	- true 값이면 이미 파일이 존재하는 경우 이어서 쓰고, false면 기존 파일에 덮어씁니다.
+	- 기본값은 true입니다.
+- fileName
+	- 로그를 남길 file의 이름입니다. 해당 파일이 없으면 새로 생성합니다.
+	- file 태그로 지정할 수 있습니다.
+
+마지막으로 `RollingFileAppender`에 대해서 살펴보겠습니다.  
+사실상 RollingFileAppender만 잘 이해해도 Logback 설정을 원하는대로 하는 데에 문제가 없을 것입니다.  
+
+```java
+public class RollingFileAppender<E> extends FileAppender<E> {
+
+    File currentlyActiveFile;
+    TriggeringPolicy<E> triggeringPolicy;
+    RollingPolicy rollingPolicy;
+
+    // 생략
+}
+```
+
+RollingFileAppender는 FileAppender를 상속합니다.  
+특정 조건이 되면, 로그를 쌓던 타겟 파일을 그 다음 파일로 변경하는 역할을 하는데, 이를 rollover라고 표현합니다.  
+
+RollingFileAppender에는 두 가지 중요한 인터페이스 필드가 있는데요, 다음과 같습니다.  
+
+- RollingPolicy
+	- rollover를 어떻게 실행할지를 정의합니다.
+- TriggeringPolicy
+	- 언제 rollover를 발생시킬지를 정의합니다.
+
+이 두가지 정책은 인터페이스여서, 내가 필요한 상황에 맞는 구현체들을 가져다가 사용하시면 됩니다.  
+아래에서 대표적인 구현체들을 둘러볼텐데요, 한번 이해하고 나면 나머지 속성들은 비교적 쉽게 유추가 가능합니다.  
 
 
+### RollingFileAppender의 RollingPolicy, TriggeringPolicy
 
-### Appender의 RollingPolicy
 
 
 ---
-
-- Logback은 무엇인가?  
-	- java.util.logging, log4j, log4j2에 이은 자바 로깅 프레임워크다.
-	- 위 유틸들에 비해 좋은 성능을 가지고 있으며, Spring boot에서는 기본 로깅 모듈로 채택하고 있다. (spring-boot-starter-web)
-
-- Appender는 무엇인가?  
-	- Logback이 logging event를 발행하도록 위임하는 객체이다.  
-	- 실제 `Appender`는 간단한 인터페이스이고, 알려진 구현체는 아래와 같은 구조를 가지고 있다.
-	- name 기반의 getter, setter와 이벤트를 수집하는 `void doAppend(E event);` 메소드를 가지고 있다.
-
-
-[image:1357571C-4D06-4301-BD61-7BBC5B51C29F-395-00001C63A41A9C0B/D5EAB5E9-8D72-4B19-A0DC-574B8B1B5E6B.png]
-
-![](./images/logback01.png)
-
-- AppenderBase
-	- Appender 를 구현하고 있는 추상클래스
-	- Appender의 doAppend(E event) 메소드를 synchronized 로 구현하고 있다.
-		- 이 때문에 멀티스레드 환경에서 같은 Appender를 사용하더라도 안전하다.
-
-- UnsynchronizedAppenderBase
-	- 하지만 synchronization이 늘 적절하지는 않기 때문에 logback은 AppnederBase와 유사하지만 synchronized 키워드가 없는 구현체를 제공한다.
-
-- OutputStreamAppender
-	- Event를 OutputStream으로 발행하는 객체
-	- 사용자가 직접 생성할 일은 없다.
-	- ConsoleAppender와 FileAppender의 부모 클래스가 된다.
-	- `encoder` property를 갖고 있다.
-		- 로그를 어떤 형식으로 남길 것인지를 결정한다.
-
-- ConsoleAppender
-	- PrintStream을 사용하여 Console에 로그를 남기는 Appender
-
-- FileAppender
-	- 로그를 file로 남기는 Appender
-	- append
-		- 기본값 true. true면 이미 file이 존재하는 경우 이어서 쓰고, false면 기존 file에 덮어쓴다.
-	- file
-		- 로그를 남길 file의 이름이다. 해당 파일이 없으면 새로 생성한다.
-
-- RollingFileAppender
-	- FileAppender를 상속한다.
-	- 특정 조건이 되면, 로그를 쌓던 타겟 파일을 그 다음 파일로 변경한다. (rollover)
-	- 두 가지 중요한 속성이 있다.
-		- `RollingPolicy`
-			- rollover 를 어떻게 실행할지를 정의한다.
-		- `TriggeringPolicy`
-			- 언제 rollover를 발생시킬지를 정의한다.
-
-RollingPolicy는 인터페이스이고, 이를 구현하는 여러 구현체들이 또 존재한다.  
-
-
 
 - TimeBasedRollingPolicy
 	- 이 자체만으로도 TriggeringPolicy도 구현하고 있다.
@@ -253,34 +406,6 @@ RollingPolicy는 인터페이스이고, 이를 구현하는 여러 구현체들�
 
 - TriggeringPolicy 는 더 간단한데, 언제 RollingPolicy를 트리거시킬지를 정한다.
 	- SizeBasedTriggeringPolicy는 maxFileSize 속성으로 트리거를 정의한다.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
