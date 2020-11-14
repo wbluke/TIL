@@ -98,7 +98,7 @@ public class LoggingController {
 
 ![](./images/logback01.png)
 
-제가 작성할 logback-spring.xml의 내용은 다음과 같습니다.  
+제가 작성한 logback-spring.xml의 내용은 다음과 같습니다.  
 하나씩 살펴보도록 하겠습니다!  
 
 ```xml
@@ -293,7 +293,7 @@ Appender의 상속 구조를 하나씩 살펴보겠습니다.
 // AppenderBase.java
 
 public synchronized void doAppend(E eventObject) {
-  // 생략
+    // 생략
 }
 ```
 
@@ -371,44 +371,202 @@ RollingFileAppender에는 두 가지 중요한 인터페이스 필드가 있는�
 아래에서 대표적인 구현체들을 둘러볼텐데요, 한번 이해하고 나면 나머지 속성들은 비교적 쉽게 유추가 가능합니다.  
 
 
-### RollingFileAppender의 RollingPolicy, TriggeringPolicy
+### RollingPolicy, TriggeringPolicy의 구현체들
+
+대표적으로 살펴볼 구현체는 `TimeBasedRollingPolicy`입니다.  
+RollingPolicy와 TriggeringPolicy를 둘 다 구현하고 있는 친구입니다.  
+
+```java
+public class TimeBasedRollingPolicy<E> extends RollingPolicyBase implements TriggeringPolicy<E> {
+
+    FileNamePattern fileNamePatternWithoutCompSuffix;
+
+    private Compressor compressor;
+    private RenameUtil renameUtil = new RenameUtil();
+    Future<?> compressionFuture;
+    Future<?> cleanUpFuture;
+
+    private int maxHistory = UNBOUND_HISTORY;
+    protected FileSize totalSizeCap = new FileSize(UNBOUNDED_TOTAL_SIZE_CAP);
+
+    private ArchiveRemover archiveRemover;
+
+    TimeBasedFileNamingAndTriggeringPolicy<E> timeBasedFileNamingAndTriggeringPolicy;
+
+    boolean cleanHistoryOnStart = false;
+
+    // 생략
+}
+```
+
+- fileNamePattern
+	- rollover된 파일 이름을 정의합니다.
+	- SimpleDateFormat 패턴을 기준으로 합니다.
+	- **rollover의 기간은 fileNamePattern에 따라 정해집니다.**
+		- `%d{yyyy-MM-dd}.log`인 경우 연/월/일 까지만 지정했으니 하루치씩 쌓입니다.
+		- `%d{yyyy-MM-dd_HH}.log`인 경우 연/월/일/시간 까지 지정했으니 매 시간 단위로 쌓입니다.
+	- 부모인 FileAppender의 File 속성과 함께 쓰는 경우
+		- File 속성은 현재 쌓이는 로그의 타겟 파일 이름입니다.
+		- File 속성을 생략하면 FileNamePattern에 의해 현재 로그가 쌓이는 파일의 이름이 정해집니다.
+- maxHistory
+	- 최대로 보관하는 파일의 개수를 정할 수 있습니다.
+	- 위 fileNamePattern에서 정한 rollover 단위가 월 단위라면, 6개의 파일(6개월 치)을 보관하고 오래된 순으로 삭제합니다.
+- totalSizeCap
+	- 아카이빙한 로그 파일의 최대 사이즈를 정의합니다.
+	- maxHistory와 함께 정의되어야 하며, maxHistory가 더 우선적인 조건이 됩니다.
+- cleanHistoryOnStart
+	- true값이면 appender가 시작할 때 기존 아카이빙된 파일들을 삭제합니다. 기본값은 false입니다.
+
+fileNamePattern이나 maxHistory에 대해 감이 잘 오시지 않을 수 있는데요, 실험을 통해 조금 더 자세히 알아보겠습니다.  
+
+먼저 테스트를 위해 logback-spring.xml을 다음과 같이 수정해보겠습니다.  
+
+```xml
+<!-- logback-spring.xml -->
+
+<property name="LOG_PATH" value="./logs"/>
+
+<appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <encoder>
+        <pattern>${FILE_LOG_PATTERN}</pattern>
+    </encoder>
+    <file>${LOG_PATH}/logback.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+        <fileNamePattern>${LOG_PATH}/application-%d{yyyy-MM-dd-HH-mm}.log</fileNamePattern>
+        <maxHistory>2</maxHistory>
+        <totalSizeCap>30MB</totalSizeCap>
+    </rollingPolicy>
+</appender>
+```
+
+file 태그에는 LOG_PATH 디렉토리 아래에 logback.log 라는 이름을 주었구요.  
+fileNamePattern은 연/월/일/시/분 단위 까지 설정해보았고, maxHistory를 2로 지정해 보겠습니다.  
+
+애플리케이션을 실행해보면!  
+
+![](./images/logback04.png)
+
+먼저 LOG_PATH로 지정한 logs라는 디렉토리 하위에 logback.log라는 이름으로 서버 실행 로그들이 쌓이는 것을 볼 수 있습니다.  
+file 태그에서 지정한 이름으로 현재 로그가 쌓이고 있는 것을 볼 수 있네요.  
+
+시간을 보니 12시 23분인데요, 1분 정도 뒤에 브라우저에서 요청을 보내보겠습니다.  
+글 초반부에서 로깅 컨트롤러를 만들어두었었는데요, info 레벨 로그를 찍는  `localhost:8080/log/info` API로 요청을 보내보겠습니다.  
+
+![](./images/logback05.png)
+
+24분에 info 요청을 보낸 결과, 새로운 파일이 하나 생겼는데요!  
+23분에 쌓였던 로그들이 fileNamePattern에서 지정한 `application-%d{yyyy-MM-dd-HH-mm}.log` 라는 이름의 파일로 아카이브가 되었습니다.  
+그리고 방금 들어온 24분의 요청은 logback.log 파일에 새롭게 쌓이는 것을 볼 수 있습니다.  
+
+fileNamePattern의 마지막 단위가 `분 단위`였기 때문에, 1분 단위로 파일이 아카이빙됩니다.  
+시간 단위를 일 단위로 하면 날짜 별로, 월 단위로 하면 월 별로 로그 파일이 묶이게 됩니다.  
+
+1분 뒤 25분에 한번 더, 이번에는 error 요청을 보내보겠습니다.  
+
+![](./images/logback06.png)
+
+이번에도 방금 전과 같이 24분의 info 로그가 fileNamePattern으로 아카이빙되고, 새로운 25분 error 로그는 logback.log에 쌓인 것을 볼 수 있습니다.  
+
+마지막으로 26분에 warn 로그를 보내보겠습니다!  
+
+![](./images/logback07.png)
+
+이번에는 조금 다른 점이 보이는데요, 맨 처음의 23분 로그 파일이 삭제된 것을 확인할 수 있습니다.  
+maxHistory에서 지정한 파일 수가 2였기 때문에, 2개의 최신 로그 파일만 유지된다는 것을 알 수 있습니다.  
+
+실제 서비스에서는 당연히 지금의 테스트처럼 1분 단위로, 2개의 파일만 쌓는 정책을 가져가지는 않을테니, 상황에 맞게 잘 변형해서 사용하시면 될 것 같습니다.  
+
+추가적으로 살펴볼 RollingPolicy, TriggeringPolicy 구현체는 `SizeAndTiemBasedRollingPolicy`인데요!  
+
+```java
+public class SizeAndTimeBasedRollingPolicy<E> extends TimeBasedRollingPolicy<E> {
+
+    FileSize maxFileSize;
+
+    // 생략
+}
+```
+
+- maxFileSize
+	- 로그 파일의 총 사이즈를 제한하고 싶을 때 사용합니다.
+
+TimeBasedRollingPolicy를 그대로 상속하고 있고, maxFileSize 속성만 추가된 형태로 이해하시면 되겠습니다.  
+
+언제 RollingPolicy를 트리거할지 정하는 TriggeringPolicy의 구현체에는 `SizeBasedTriggeringPolicy`도 있는데요.  
+
+```java
+public class SizeBasedTriggeringPolicy<E> extends TriggeringPolicyBase<E> {
+
+    public static final long DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
+    FileSize maxFileSize = new FileSize(DEFAULT_MAX_FILE_SIZE);
+
+    // 생략
+}
+```
+
+이름에서 유추해볼 수 있듯이, maxFileSize 속성으로 rollOver의 트리거 조건을 가져가는 구현체입니다.  
+기본 사이즈는 10MB네요.  
+
+## 정리
+
+마지막으로 맨 처음에 보여드렸던 제 logback-spring.xml 설정 파일을 다시 한번 보여드리겠습니다.  
+이제는 각 속성들이 어떤 것들을 의미하는지 눈에 들어오실 것이라 생각합니다.ㅎㅎ  
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <property name="LOG_PATH" value="./logs"/>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+        </encoder>
+        <file>${LOG_PATH}/logback.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/application-%d{yyyy-MM-dd-HH-mm}.%i.log</fileNamePattern>
+            <maxHistory>10</maxHistory>
+            <totalSizeCap>${LOG_FILE_TOTAL_SIZE_CAP:-0}</totalSizeCap>
+            <cleanHistoryOnStart>${LOG_FILE_CLEAN_HISTORY_ON_START:-false}</cleanHistoryOnStart>
+            <maxFileSize>${LOG_FILE_MAX_SIZE:-10MB}</maxFileSize>
+        </rollingPolicy>
+    </appender>
+
+    <!-- Spring Profiles -->
+    <springProfile name="local">
+        <include resource="org/springframework/boot/logging/logback/base.xml"/>
+    </springProfile>
+
+    <springProfile name="develop">
+        <property name="LOG_PATH" value="/home/ec2-user/logs"/>
+
+        <root level="INFO">
+            <appender-ref ref="FILE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="prod">
+        <property name="LOG_PATH" value="/home/ec2-user/logs"/>
+
+        <root level="INFO">
+            <appender-ref ref="FILE"/>
+        </root>
+    </springProfile>
+
+</configuration>
+```
 
 
+이렇게 조금 장황했던 Logback 설정에 대해서 알아봤는데요, 기본적인 속성들과 구현체들의 특성에 대해서 이해하고 있으면, 나중에 실제 상황에서 필요할 때는 공식 문서 등을 찾아보면서 적용하면 금방 원하는 로그 아카이빙 플로우를 구축할 수 있을 것이라 생각됩니다.  
 
----
-
-- TimeBasedRollingPolicy
-	- 이 자체만으로도 TriggeringPolicy도 구현하고 있다.
-	- fileNamePattern
-		- rollover된 파일 이름을 정의한다.
-		- SimpleDateFormat 패턴을 기준으로 한다.
-		- **rollover의 기간은 fileNamePattern에 따라 정해진다.**
-			- `%d{yyyy-MM-dd}.log`
-				- 하루치씩 쌓인다.
-			- `%d{yyyy-MM-dd_HH}.log`
-				- 매 시간 단위로 쌓인다.
-		- 부모인 FileAppender의 File 속성과 함께 쓰는 경우
-			- File 속성은 현재 쌓이는 로그의 타겟 파일 이름이다.
-			- File 속성을 생략하면 FileNamePattern에 의해 현재 로그가 쌓이는 파일의 이름이 정해진다.
-	- maxHistory
-		- 최대로 보관하는 파일의 개수를 정한다.
-		- rollover 단위가 월 단위라면, 6개의 파일(6개월 치)을 보관하고 오래된 순으로 삭제한다.
-	- totalSizeCap
-		- 아카이빙한 로그 파일의 최대 사이즈를 정의한다.
-		- maxHistory와 함께 정의되어야 하며, maxHistory가 더 우선적인 조건이 된다.
-	- cleanHistoryOnStart
-		- true값이면 appender가 시작할 때 기존 아카이빙된 파일들을 삭제한다. 기본값은 false다.
-
-- SizeAndTimeBasedRollingPolicy
-	- TimeBasedRollingPolicy + 로그 파일의 총 사이즈를 제한하고 싶을 때 사용한다.
-	- maxFileSize 속성으로 정의한다.
+이번 글도 읽어주셔서 감사합니다!  
+좋은 하루 보내세요 :-)  
 
 
-- TriggeringPolicy 는 더 간단한데, 언제 RollingPolicy를 트리거시킬지를 정한다.
-	- SizeBasedTriggeringPolicy는 maxFileSize 속성으로 트리거를 정의한다.
+## 참고
 
-
-
-
-
+- [Logback 공식 문서](http://logback.qos.ch/manual/appenders.html)
 
