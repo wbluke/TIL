@@ -1,3 +1,9 @@
+## EC2 (Elastic Compute Cloud)
+
+[Amazon EC2이란 무엇입니까?](https://docs.aws.amazon.com/ko_kr/AWSEC2/latest/WindowsGuide/concepts.html)
+
+---
+
 ## VPC (Virtual Private Cloud)
 
 [Amazon VPC란 무엇인가?](https://docs.aws.amazon.com/ko_kr/vpc/latest/userguide/what-is-amazon-vpc.html)
@@ -22,6 +28,10 @@ EC2 인스턴스에 대한 방화벽 역할을 한다.
 - 상태 비저장: 반환 트래픽이 규칙에 의해 명시적으로 허용되어야 함
 - 트래픽 허용 여부를 결정할 때 번호가 가장 낮은 규칙부터 순서대로 규칙을 처리
 - 연결된 서브넷의 모든 인스턴스에 자동 적용됨(보안 그룹 규칙이 지나치게 허용적일 경우 추가 보안 계층 제공)
+
+### NAT instance, Internet Gateway (IGW)
+
+외부 인터넷과 연결할 때 사용한다.  
 
 ---
 
@@ -189,6 +199,14 @@ endpoint를 사용하면 각각의 커넥션을 역할에 맞는 인스턴스 �
 
 ---
 
+## AWS CloudFormation
+
+[AWS CloudFormation이란 무엇인가요?](https://docs.aws.amazon.com/ko_kr/AWSCloudFormation/latest/UserGuide/Welcome.html)
+
+AWS 리소스들을 모델링하고 설정하여 해당 리소스의 프로비저닝과 구성을 담당해주는 서비스.  
+
+---
+
 # 기타 서비스
 
 ## Redshift
@@ -221,4 +239,17 @@ LightSail의 대상은 AWS의 EC2, EBS, VPC, 그리고 Route53 같은 무수한 
 
 [AWS | Amazon Simple Workflow Service - 클라우드 워크플로 관리](https://aws.amazon.com/ko/swf/)
 
-병렬 또는 순차 단계가 있는 백그라운드 작업을 구축하고 실행하고 확장할 수 있는 서비스.
+병렬 또는 순차 단계가 있는 백그라운드 작업을 구축하고 실행하고 확장할 수 있는 서비스.  
+
+## AWS IoT Core
+
+[AWS IoT(이)란 무엇입니까?](https://docs.aws.amazon.com/ko_kr/iot/latest/developerguide/what-is-aws-iot.html)
+
+여러 장비들을 쉽고 안전하게 클라우드 애플리케이션 및 다른 디바이스와 상호 작용할 수 있게 해주는 관리형 클라우드 서비스.  
+
+## AWS OpsWorks
+
+[AWS OpsWorks란 무엇입니까?](https://docs.aws.amazon.com/ko_kr/opsworks/latest/userguide/welcome.html)
+
+Puppet 또는 Chef를 사용하여 클라우드 엔터프라이즈에서 애플리케이션을 구성하고 운영하도록 지원하는 구성 관리 서비스.  
+Chef Configuration Management : 일종의 설정 자동화 툴.
