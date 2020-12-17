@@ -62,7 +62,22 @@ SAA 내용은 아니지만 참고하면 좋은 블로그. 내용이 좋다.
 
 Amazon 스토리지 서비스.  
 
+### 알림
+
 Amazon S3는 객체 생성/복제/제거/복원/손실 등의 알림을 Amazon SNS, Amazon SQS, AWS Lambda로 보낼 수 있다.  
+
+### 데이터 크기
+
+일반 single PUT 요청(데이터 저장)의 데이터 한도는 `5GB` 이다.  
+그 이상의 파일은 Multipart Upload를 사용해야 한다.  
+
+### Lifecycle Configuration
+
+S3에는 Lifecycle Configuration이 있다.  
+
+- Transition Actions : 특정 시간이 지나면 하나의 스토리지에 있는 객체를 다른 스토리지로 옮기도록 설정할 수 있다.
+    - Standard-IA에 있던 데이터를 30일이 지나면 훨씬 저렴한 Glacier로 옮기도록 설정할 수 있다.
+- Expiration Actions : 특정 시간이 지나면 객체를 삭제하도록 설정할 수 있다.
 
 ### S3 스탠다드-Infrequent Access(S3 스탠다드-IA)
 
@@ -199,6 +214,14 @@ endpoint를 사용하면 각각의 커넥션을 역할에 맞는 인스턴스 �
 
 ---
 
+## AWS DynamoDB
+
+### **Amazon DynamoDB Accelerator (DAX)**
+
+DAX는 완전 관리형 In-Memory Read Performance를 향상시켜주는 인메모리 캐시 서비스이다.  
+
+---
+
 ## AWS CloudFormation
 
 [AWS CloudFormation이란 무엇인가요?](https://docs.aws.amazon.com/ko_kr/AWSCloudFormation/latest/UserGuide/Welcome.html)
@@ -252,4 +275,17 @@ LightSail의 대상은 AWS의 EC2, EBS, VPC, 그리고 Route53 같은 무수한 
 [AWS OpsWorks란 무엇입니까?](https://docs.aws.amazon.com/ko_kr/opsworks/latest/userguide/welcome.html)
 
 Puppet 또는 Chef를 사용하여 클라우드 엔터프라이즈에서 애플리케이션을 구성하고 운영하도록 지원하는 구성 관리 서비스.  
-Chef Configuration Management : 일종의 설정 자동화 툴.
+Chef Configuration Management : 일종의 설정 자동화 툴.  
+
+## AWS Snowball
+
+[AWS Snowball | 안전한 엣지 컴퓨팅 및 오프라인 데이터 전송 | Amazon Web Services](https://aws.amazon.com/ko/snowball/?whats-new-cards.sort-by=item.additionalFields.postDateTime&whats-new-cards.sort-order=desc)
+
+페타바이트 규모의 데이터를 오프라인 전송 디바이스를 이용해 블록 스토리지나 S3로 전송할 수 있는 서비스.  
+
+## AWS Import/Export
+
+[Upload Large Amounts of Data with AWS Import/Export](https://docs.aws.amazon.com/ko_kr/emr/latest/ManagementGuide/emr-plan-input-import-export.html)
+
+AWS Snowball과 비슷한 마이그레이션 툴.  
+이동식 스토리지 디바이스를 AWS에 보내면 AWS에서 전용 고속 인터넷으로 스토리지에 데이터를 전송한다.
