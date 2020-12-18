@@ -2,11 +2,158 @@
 
 [Amazon EC2이란 무엇입니까?](https://docs.aws.amazon.com/ko_kr/AWSEC2/latest/WindowsGuide/concepts.html)
 
+EC2는 물리 서버의 기능을 가상화했지만 실제 서버와 유사하게 작동하며, 스토리지, 메모리, 네트워크 인터페이스, OS가 새로 설치된 기본 드라이브가 제공된다.  
+
+### **EC2 AMI**
+
+AMI(Amazon Machine Image)에는 다음과 같이 4가지 종류가 있다.  
+
+- Amazon 빠른 시작 AMI
+    - 다양한 리눅스 배포판, Windows Server OS, 딥러닝, 데이터베이스 등의 공통 작업을 위한 특수 이미지가 포함된다.
+    - 가장 많이 사용하고 Amazon에서 항상 최신버전으로 공식 지원한다.
+- AWS Marketplace AMI
+    - 프로덕션 환경에서 사용 가능한 공식 이미지
+- 커뮤니티 AMI
+    - 특정한 요구에 맞도록 독립 공급업체가 제작하고 관리한다.
+- 프라이빗 AMI
+    - 사용자가 자체 배포한 인스턴스에서 이미지를 생성해서 저장하면 자체 프라이빗 AMI를 만들 수 있다.
+
+일부 AMI는 특정 리전에서 사용할 수 없으므로 배포 시에 이를 고려해야 한다.  
+
+### **인스턴스 유형**
+
+애플리케이션에 딱 맞는 컴퓨팅 성능, 메모리, 스토리지 용량을 제공해 필요한 사양에 맞게 비용을 지출할 수 있도록 한다.  
+
+- 범용
+    - T3, T2, M5, M4
+    - 컴퓨팅, 메모리, 네트워크 리소스를 균형있게 제공한다.
+    - M5, M4는 주로 중소 규모 데이터 운영에 권장된다. EBS 가상 볼륨을 스토리지로 사용해야 하는 T2와는 달리 일부 M 인스턴스는 실제 호스트 서버에 물리적으로 연결된 내장 인스턴스 스토리지 드라이브와 함께 제공된다.
+- 컴퓨팅 최적화
+    - C5, C4
+    - 대규모 요청을 받는 웹 서버와 고성능 머신 러닝 워크로드에 사용한다.
+- 메모리 최적화
+    - X1e, X1, R5, R4, z1d
+    - 처리량이 많은 데이터베이스, 데이터 분석, 캐싱 작업에 유용하다.
+- 가속화된 컴퓨팅
+    - P3, P2, G3, F1
+    - 고성능 범용 그래픽 처리 장치(GPGPU)가 제공된다.
+    - 3D 시각화/렌더링, 재무 분석, 전산 유체 역학 등의 높은 워크로드에 사용된다.
+- 스토리지 최적화
+    - H1, I3, D2
+    - 지연 시간이 짧은 대용량 인스턴스 스토리지 볼륨을 사용한다.
+    - 분산 파일 시스템과 규모가 큰 데이터 처리 애플리케이션에 유용하다.
+
+---
+
+## Amazon ELB (Elastic Load Balancer)
+
+[웹 서버 로드 밸런싱 | 서버 로드 밸런싱 | Amazon Web Services](https://aws.amazon.com/ko/elasticloadbalancing/)
+
+트래픽이 몰릴 경우 Auto Scaling과 같은 작업을 하여 트래픽을 분산시키는 서비스.  
+On Premise의 L4 Switch와 동일한 역할을 한다.  
+
+AWS에서는 CLB(Classic Load Balancer), ALB(Application Load Balancer), NLB(Network Load Balancer) 총 3개의 로드벨런서가 있다. (출시순)  
+
+SNI(Server Name Indication, 서버 이름 표시)를 사용해 다중 TLS/SSL 인증서 지원을 할 수 있다.  
+이를 통해 단일 로드 밸런서 뒤에서 각각 자체 TLS 인증서를 갖는 다수의 TLS 보안 애플리케이션을 호스팅할 수 있다.  
+SNI는 로드 밸런서에서 동일한 보안 리스너로 다수의 인증서를 바인딩하기만 하면 사용할 수 있는데, 그러면 ELB가 각 클라이언트마다 최적의TLS 인증서를 자동으로 선택한다.  
+
+> SNI(Server Name Indication, 서버 이름 표시) : TLS 핸드쉐이킹 과정에서 클라이언트가 어느 호스트에 접속하려는지 서버에 알리는 역할
+
+SAA 내용은 아니지만 참고하면 좋은 블로그. 내용이 좋다.  
+
+[AWS Network Intro - Elastic Load Balancer](https://aws-diary.tistory.com/11)
+
+---
+
+## Amazon EBS (Elastic Block Store)
+
+[AWS EBS 기능 - Amazon Web Services](https://aws.amazon.com/ko/ebs/features/)
+
+EBS는 필요한 수만큼 인스턴스에 연결할 수 있으며 물리 서버의 하드 드라이브, 플래시 드라이브, USB 드라이브와 유사하게 사용된다.  
+
+모든 EBS 볼륨은 스냅샷을 통해 복사할 수 있고, 기존 스냅샷을 다른 인스턴스에 공유해서 연결할 수 있으며, AMI에 등록할 수 있는 이미지로 변경할 수 있다.  
+EBS 볼륨을 암호화해서 데이터를 보호할 수 있고, 내부에서 암호화 키를 관리하거나 AWS KMS에서 제공되는 키를 사용할 수 있다.  
+
+### EBS 유형
+
+현재 EBS 유형에는 SSD(Solid State Drive) 기술을 사용하는 두 가지 유형과 기존의 디스크 회전 구동형 HDD(Hard Disk Drive) 기술을 사용하는 두 가지 유형이 있다.  
+성능은 최고 **IOPS(Input/Output Operations Per Second)**로 측정한다.  
+
+- EBS 프로비저닝된 IOPS SSD (io2)
+    - 고성능 I/O 작업이 필요할 때 사용한다.
+    - 최대 64,000 IOPS 성능을 제공한다.
+    - GB 당 주어지는 IOPS는 500:1이다.
+- EBS 프로비저닝된 IOPS SSD (io1)
+    - 최대 64,000 IOPS 성능을 제공한다.
+    - GB 당 주어지는 IOPS는 50:1이다.
+- EBS 범용 SSD (gp2)
+    - 일반 서버 워크로드에는 이론적으로 짧은 지연 시간 성능을 제공하는 범용 SSD가 적합하다.
+    - 최대 16,000 IOPS 성능을 제공한다.
+    - GB 당 주어지는 IOPS는 3:1이다.
+- 처리량에 최적화된 HDD (st1)
+    - 로그 처리와 빅데이터 작업 등 처리량이 많은 워크로드에 적합하다.
+    - 최대 500 IOPS 성능을 제공한다.
+- 콜드 HDD (sc1)
+    - 빈번하게 엑세스하지 않는 대용량 데이터 작업에 적합하다.
+    - 250 IOPS 성능을 제공한다.
+
 ---
 
 ## VPC (Virtual Private Cloud)
 
 [Amazon VPC란 무엇인가?](https://docs.aws.amazon.com/ko_kr/vpc/latest/userguide/what-is-amazon-vpc.html)
+
+Amazon VPC는 EC2의 네트워크 계층이며, EC2 인스턴스를 비롯한 여러 AWS 서비스에 네트워크 리소스를 담을 수 있는 가상 네트워크다.  
+모든 VPC는 기본적으로 다른 모든 네트워크와 격리돼 있지만, 필요할 때는 인터넷 및 다른 VPC 등과 연결할 수 있다.  
+
+VPC는 한 AWS 리전 안에서만 존재할 수 있으며, 한 리전에 만든 VPC는 다른 리전에서는 보이지 않는다.  
+하나의 계정에 여러 VPC를 둘 수 있고 단일 리전에 여러 VPC를 만들 수 있다.  
+
+### **VPC CIDR 블록**
+
+VPC는 하나 이상의 연속적 IP 주소 범위로 구성되며, CIDR(Classless Inter Domain Routing) 블록으로 표시한다.  
+VPC CIDR 접두사 길이는 /16부터 /28까지다.IP는 IPv4의 축약어로 유효한 접두사 길이는 /0부터 /32까지다.  
+사설망(private) RFC 1918 범위는 다음과 같다.  
+
+- 10.0.0.0 - 10.255.255.255 (10.0.0.0/8)
+- 172.16.0.0 - 172.31.255.255 (172.16.0.0/12)
+- 192.168.0.0 - 192.168.255.255 (192.168.0.0/16)
+
+### **보조 CIDR 블록**
+
+VPC를 만든 후에도 보조 CIDR 블록을 지정할 수 있다.  
+보조 CIDR 블록은 기본 CIDR 주소 범위나 퍼블릭에서 라우팅이 가능한 범위 내에서 생성돼야 하고, 기본 블록 또는 다른 보조 블록과 겹치지 않아야 한다.  
+
+### **서브넷**
+
+서브넷은 VPC 내 논리 컨테이너로서 EC2 인스턴스를 배치하는 장소다.  
+인스턴스를 서로 격리하고, 인스턴스 간 트래픽 흐름을 제어하고, 인스턴스를 기능별로 모을 수 있다.  
+
+### **서브넷 CIDR 블록**
+
+서브넷의 CIDR은 VPC CIDR의 일부이면서, VPC 내에서 고유해야 한다.  
+AWS는 모든 서브넷에서 처음 4개 IP 주소와 마지막 IP 주소를 예약하며, 이 주소는 인스턴스에 할당할 수 없다.  
+
+VPC는 보조 CIDR을 가질 수 있지만, 서브넷에는 하나의 CIDR만 있다.  
+VPC에 기본 CIDR과 보조 CIDR이 있는 경우, 그 중 하나에서 서브넷 CIDR을 생성할 수 있다.  
+
+### **가용 영역**
+
+서브넷은 하나의 가용 영역(AZ, Availabiliy Zone) 내에서만 존재할 수 있다.  
+AWS 리전의 가용 영역들은 서로 프라이빗으로 연결돼 있으며, 한 가용 영역에 장애가 발생하더라도 다른 영역에 장애의 영향이 미치지 않도록 설계됐다.  
+
+서로 다른 가용 영역에 서브넷을 하나씩 만든 다음 인스턴스를 각각 서브넷에 분산해서 만들면, 애플리케이션은 복원성을 확보할 수 있다.  
+
+### **탄력적 네트워크 인터페이스**
+
+탄력적 네트워크 인터페이스(ENI, Elastic Network Interface)를 사용하면 인스턴스가 AWS 서비스, 다른 인스턴스, 온프레미스 서버, 인터넷 등 다른 네트워크 리소스와 통신할 수 있다.  
+모든 인스턴스에는 기본 ENI가 있어야 하며 이 인터페이스는 하나의 서브넷에만 연결된다.  
+
+각 인스턴스는 기본 프라이빗 IP 주소를 가지고 있어야 하는데, 그 주소는 서브넷 CIDR에서 지정한 범위 내 주소여야 한다.  
+
+ENI는 인스턴스와 독립적으로 존재할 수 있는데, 먼저 ENI를 생성하고 나중에 인스턴스에 연결할 수 있다.  
+기존 ENI를 가져와서 기존 인스턴스에 보조 ENI로 연결할 수 있으며, 장애가 있는 인스턴스에서 ENI를 분리해 작동하고 있는 다른 인스턴스에 연결하면 트래픽을 장애 인스턴스에서 정상 인스턴스로 전환할 수 있다.  
 
 ### 보안 그룹 (Security Group)
 
@@ -29,30 +176,43 @@ EC2 인스턴스에 대한 방화벽 역할을 한다.
 - 트래픽 허용 여부를 결정할 때 번호가 가장 낮은 규칙부터 순서대로 규칙을 처리
 - 연결된 서브넷의 모든 인스턴스에 자동 적용됨(보안 그룹 규칙이 지나치게 허용적일 경우 추가 보안 계층 제공)
 
-### NAT instance, Internet Gateway (IGW)
+### Internet Gateway (IGW)
 
-외부 인터넷과 연결할 때 사용한다.  
+인터넷 게이트웨이는 퍼블릭 IP 주소를 할당받은 인스턴스가 인터넷과 연결돼서 인터넷으로부터 요청을 수신하는 기능을 제공한다.  
+VPC에는 하나의 게이트웨이만 연결할 수 있다.  
 
----
+인터넷 게이트웨이에는 관리형 IP 주소나 네트워크 인터페이스가 없는 대신, 식별을 위해 AWS 리소스 ID가 할당된다.  
+리소스 ID는 igw-로 시작하며 그 뒤에 영숫자 문자열이 온다.  
 
-## Amazon ELB (Elastic Load Balancer)
+### NAT 디바이스
 
-[웹 서버 로드 밸런싱 | 서버 로드 밸런싱 | Amazon Web Services](https://aws.amazon.com/ko/elasticloadbalancing/)
+네트워크 주소 변환은 인터넷 게이트웨이에서 이뤄지지만, 다음 두 가지 서비스도 네트워크 주소 변환을 수행한다.  
 
-트래픽이 몰릴 경우 Auto Scaling과 같은 작업을 하여 트래픽을 분산시키는 서비스.  
-On Premise의 L4 Switch와 동일한 역할을 한다.  
+- NAT 게이트웨이
+- NAT 인스턴스
 
-AWS에서는 CLB(Classic Load Balancer), ALB(Application Load Balancer), NLB(Network Load Balancer) 총 3개의 로드벨런서가 있다. (출시순)  
+AWS는 이를 `NAT 디바이스`라고 하며, 인스턴스가 인터넷에 액세스할 수 있게 하면서 인터넷상의 호스트에서는 인스턴스에 직접 도달하지 못하게 할 때 사용한다.  
+이 기능은 인스턴스가 업데이트 패치를 받거나 데이터를 업로드할 때 인터넷에 연결할 필요는 있지만, 클라이언트 요청에 응답할 필요는 없을 때 유용하다.  
 
-SNI(Server Name Indication, 서버 이름 표시)를 사용해 다중 TLS/SSL 인증서 지원을 할 수 있다.  
-이를 통해 단일 로드 밸런서 뒤에서 각각 자체 TLS 인증서를 갖는 다수의 TLS 보안 애플리케이션을 호스팅할 수 있다.  
-SNI는 로드 밸런서에서 동일한 보안 리스너로 다수의 인증서를 바인딩하기만 하면 사용할 수 있는데, 그러면 ELB가 각 클라이언트마다 최적의TLS 인증서를 자동으로 선택한다.  
+### **NAT 게이트웨이**
 
-> SNI(Server Name Indication, 서버 이름 표시) : TLS 핸드쉐이킹 과정에서 클라이언트가 어느 호스트에 접속하려는지 서버에 알리는 역할
+NAT 게이트웨이는 AWS에서 관리하는 NAT 디바이스이며, 인터넷 게이트웨이처럼 하나의 NAT 게이트웨이로 어떠한 용량의 요청도 처리할 수 있다.  
 
-SAA 내용은 아니지만 참고하면 좋은 블로그. 내용이 좋다.  
+NAT 게이트웨이를 생성할 때 EIP도 함께 할당해서 연결해야 하고, 퍼블릭 서브넷 한 곳에 배포해서 인터넷에 액세스할 수 있게 해야 한다.  
 
-[AWS Network Intro - Elastic Load Balancer](https://aws-diary.tistory.com/11)
+### **NAT 인스턴스**
+
+NAT 인스턴스는 사전 구성된 Linux 기반 AMI를 사용하는 일반적인 EC2 인스턴스이며, 여러 면에서 NAT 게이트웨이처럼 작동하지만 NAT 인스턴스는 몇 가지 중요한 다른 점이 있다.  
+
+NAT 게이트웨이와는 달리 NAT 인스턴스는 대역폭 요구가 증가하더라도 자동으로 확장되지 않는다.  
+따라서 적절한 성능을 갖춘 인스턴스 유형을 선택히는 것이 중요하다.  
+대역폭 요구가 증가하면 직접 더 큰 인스턴스 유형으로 업그레이드해야 한다.  
+
+그리고 NAT 인스턴스에는 ENI가 있으므로 보안 그룹을 적용해야 하고 퍼블릭 IP 주소를 할당해야 한다.  
+
+NAT 인스턴스의 한 가지 이점은 배스천 호스트(Bastion Host, 또는 점프 호스트)로 사용해서 퍼블릭 IP가 없는 인스턴스에 연결할 수 있다는 것이며, NAT 게이트웨이로는 이 작업을 수행할 수 없다.  
+
+인스턴스나 가용 영역에 장애가 발생하면 다른 NAT 인스턴스로 확장하는 정도로는 간단히 대처할 수 없는데 이는 기본 라우팅에 여러 NAT 인스턴스를 대상으로 경로를 지정할 수 없기 때문이다.  
 
 ---
 
@@ -181,6 +341,16 @@ S3에 오리진 데이터를 넣어놓고 CloudFront를 연결한 후 글로벌�
 
 ---
 
+## Amazon API Gateway
+
+[Amazon API Gateway란 무엇입니까?](https://docs.aws.amazon.com/ko_kr/apigateway/latest/developerguide/welcome.html)
+
+컨테이너식 서버리스 워크로드, 웹 애플리케이션을 지원하는 완전 관리형 API 관리 서비스.  
+트래픽 관리, CORS 지원, 권한 부여 및 액세스 제어, 제한, 모니터링 및 API 버전 관리 작업.  
+애플리케이션이 뒤쪽 백엔스 서비스에 액세스할 수 있는 `정문` 역할을 한다.  
+
+---
+
 ## Amazon SQS (Simple Queue Service)
 
 [Amazon Simple Queue Service(이)란 무엇입니까?](https://docs.aws.amazon.com/ko_kr/AWSSimpleQueueService/latest/SQSDeveloperGuide/welcome.html)
@@ -288,4 +458,16 @@ Chef Configuration Management : 일종의 설정 자동화 툴.
 [Upload Large Amounts of Data with AWS Import/Export](https://docs.aws.amazon.com/ko_kr/emr/latest/ManagementGuide/emr-plan-input-import-export.html)
 
 AWS Snowball과 비슷한 마이그레이션 툴.  
-이동식 스토리지 디바이스를 AWS에 보내면 AWS에서 전용 고속 인터넷으로 스토리지에 데이터를 전송한다.
+이동식 스토리지 디바이스를 AWS에 보내면 AWS에서 전용 고속 인터넷으로 스토리지에 데이터를 전송한다.  
+
+## AWS SSO (Single Sign-On)
+
+[AWS Single Sign-On | 클라우드 SSO 서비스 | AWS](https://aws.amazon.com/ko/single-sign-on/)
+
+모든 AWS Organizations 계정에 대한 액세스 권한을 한 곳에서 관리할 수 있는 서비스.  
+
+## AWS Cognito
+
+[Cognito | 계정 동기화 | Amazon Web Services](https://aws.amazon.com/ko/cognito/)
+
+사용자 인증 관리, 소셜 서비스 자격 증명 연동 등을 지원하는 인증 서비스.
