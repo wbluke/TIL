@@ -43,6 +43,43 @@ AMI(Amazon Machine Image)에는 다음과 같이 4가지 종류가 있다.
     - 지연 시간이 짧은 대용량 인스턴스 스토리지 볼륨을 사용한다.
     - 분산 파일 시스템과 규모가 큰 데이터 처리 애플리케이션에 유용하다.
 
+### 인스턴스 수명 주기 & 요금
+
+- `pending`
+- `running`
+- `stopping`
+    - 인스턴스가 중지 또는 중지-최대 절전 모드로 전환할 준비를 하고 있는 경우
+        - 중지 준비 중인 경우 요금 미청구
+        - 최대 절전 모드로 전환 준비 중인 경우 요금 청구
+- `shutting-down`
+- `terminated`
+    - 예약 인스턴스인 경우 결제 옵션에 따라 기간이 종료될 때까지 요금이 청구된다.
+
+### 인스턴스 최대 절전 모드 (Amazon EBS 지원 인스턴스에만 해당)
+
+[인스턴스 수명 주기](https://docs.aws.amazon.com/ko_kr/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html#instance-hibernate)
+
+인스턴스를 최대 절전 모드로 전환하면 운영 체제에 최대 절전 모드를 수행하도록 알리고, 인스턴스 메모리(RAM)의 콘텐츠를 Amazon EBS 루트 볼륨에 저장한다.  
+그리고 인스턴스의 Amazon EBS 루트 볼륨과 연결된 모든 Amazon EBS 데이터 볼륨을 유지한다.  
+
+인스턴스를 시작하면 Amazon EBS 루트 볼륨이 이전 상태로 복원되고, RAM 콘텐츠가 다시 로드된다.  
+이전에 연결된 데이터 볼륨이 다시 연결되고, 인스턴스는 해당 인스턴스 ID를 유지한다.  
+
+인스턴스를 최대 절전 모드로 전환하면 `stopping` 상태로 전환되고 나서 `stopped` 상태로 전환된다.  
+최대 절전 모드로 전환하지 않고 인스턴스를 중지한 경우와 달리 최대 절전 모드 인스턴스가 `stopped` 상태이면 해당 인스턴스에 대해서는 사용 요금을 청구할 수 없지만 `stopping` 상태일 때 비용이 청구된다.  
+데이터 전송에 대해 사용 요금이 부과되지는 않지만 RAM 데이터에 대한 스토리지를 포함해 모든 Amazon EBS 볼륨에 대한 스토리지 요금은 부과된다.  
+
+### 인스턴스 구입 옵션
+
+- 온디맨드 인스턴스
+- 전용 인스턴스 (Dedicated instances)
+    - 단일 고객 전용 하드웨어를 점유하는 VPC에서 사용되는 인스턴스.
+- 예약 인스턴스 (Reserved instances)
+    - 1년 혹은 3년 약정으로 할인된 가격에 인스턴스 이용
+- 스팟 인스턴스
+    - 큰 할인율로 미사용 인스턴스를 사용할 수 있게 해준다.
+    - 시간을 유연하게 조정하고 중단되어도 되는 애플리케이션에서 데이터 분석, 배치 작업, 백그라운드 프로세싱 등의 용도로 사용되기에 적합하다.
+
 ---
 
 ## Amazon ELB (Elastic Load Balancer)
@@ -385,6 +422,10 @@ endpoint를 사용하면 각각의 커넥션을 역할에 맞는 인스턴스 �
 ---
 
 ## AWS DynamoDB
+
+[Amazon DynamoDB란 무엇입니까?](https://docs.aws.amazon.com/ko_kr/amazondynamodb/latest/developerguide/Introduction.html)
+
+완전 관리형 NoSQL 데이터베이스.  
 
 ### **Amazon DynamoDB Accelerator (DAX)**
 
