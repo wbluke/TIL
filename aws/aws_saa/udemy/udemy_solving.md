@@ -80,13 +80,75 @@ AMI(Amazon Machine Image)에는 다음과 같이 4가지 종류가 있다.
     - 큰 할인율로 미사용 인스턴스를 사용할 수 있게 해준다.
     - 시간을 유연하게 조정하고 중단되어도 되는 애플리케이션에서 데이터 분석, 배치 작업, 백그라운드 프로세싱 등의 용도로 사용되기에 적합하다.
 
+### 온디맨드 인스턴스 제한
+
+리전별로 AWS 계정당 온디맨드 인스턴스 실행 수에는 제한이 있다.  
+인스턴스 수는 인스턴스 유형과 관계 없이 vCPU 수를 기준으로 관리된다.  
+리소스가 부족한 경우 AWS에 제한 증가를 요청할 수 있다.  
+
 ---
 
-## Amazon ELB (Elastic Load Balancer)
+## Amazon EC2 Auto Scaling
+
+[Amazon EC2 Auto Scaling(이)란 무엇입니까?](https://docs.aws.amazon.com/ko_kr/autoscaling/ec2/userguide/what-is-amazon-ec2-auto-scaling.html)
+
+EC2 Auto Scaling 서비스는 애플리케이션 장애를 방지하고, 장애가 발생했을 때 복구할 수 있는 방법을 제공한다.  
+Auto Scaling은 지정한 개수의 EC2 인스턴스를 자동으로 프로비저닝해서 시작한다.  
+수요가 증가하면 더 많은 인스턴스를 동적으로 추가할 수 있고, 인스턴스가 종료되거나 장애가 생기면 Auto Scaling이 자동으로 인스턴스를 교체한다.  
+
+### **시작 구성**
+
+`시작 구성(Launch Configuration)`은 인스턴스를 수동으로 생성할 때 사용하며, AMI, 인스턴스 유형, SSH 키 페어, 보안 그룹, 인스턴스 프로필, 블록 장치 연결, EBS 최적화 여부, 배치 테넌시, 사용자 데이터 등의 구성 파라미터를 지정한다.  
+시작 구성은 인스턴스를 수동으로 프로비저닝할 때 입력하는 정보와 같은 내용을 담고 있는 형식 문서이다.  
+
+시작 구성은 기존 EC2 인스턴스에서 만들 수 있고, Auto Scaling이 인스턴스에서 설정을 복사한 뒤, 필요에 따라 그 설정을 변경해서 만들 수 있으며, 아예 백지 상태에서 처음부터 만들 수도 있다.  
+
+시작 구성은 Auto Scaling에서만 사용되므로, 인스턴스를 직접 시작할 때 시작 구성을 활용할 수 없다.  
+시작 구성을 만들고 나면 수정할 수 없으므로, 설정의 일부 내용을 수정하려면 새롭게 시작 구성을 작성해야 한다.  
+
+### **시작 템플릿**
+
+`시작 템플릿(Launch Templates)`은 인스턴스를 수동으로 프로비저닝할 때 입력하는 정보를 설정 작업에 사용한다는 점에서 시작 구성과 유사하지만, 기존의 시작 구성보다 다양한 용도로 활용할 수 있다.  
+
+시작 템플릿을 생성하고 난 후 수정할 수 있으며, 기존 템플릿과 수정 템플릿을 버전 별로 보관한다.  
+AWS에 모든 버전을 보관하고 있다가 필요에 따라 앞 버전과 뒤 버전의 템플릿을 선택해서 사용할 수 있다.  
+
+### **Auto Scaling Group**
+
+Auto Scaling 그룹은 Auto Scaling이 관리하는 EC2 인스턴스의 그룹이며, Auto Scaling 그룹을 만들 때는 미리 만들어 놓은 시작 구성이나 시작 템플릿을 지정한다.  
+Auto Scaling이 프로비저닝하고 유지해야 하는 가동 인스턴스의 숫자도 지정하고, Auto Scaling 그룹의 최소 및 최대 숫자도 지정하며, 유지해야 할 인스턴스의 목표 숫자도 선택적으로 설정할 수 있다.  
+
+- 최소
+    - 정상 인스턴스 수가 최솟값보다 적어지지 않도록 한다.
+    - 0으로 설정하면 Auto Scaling은 인스턴스를 만들지 않고 그룹 내에서 가동 중인 모든 인스턴스를 종료한다.
+- 최대
+    - 정상 인스턴스 수가 최댓값을 넘지 않도록 한다.
+- 목표 용량
+    - 최솟값과 최댓값 사이에서 선택하며 반드시 설정해야 하는 것은 아니다.
+    - 목표 용량을 지정하지 않으면 Auto Scaling은 최소 인스턴스 수로 시작하고, 목표 용량을 지정하면 Auto Scaling은 지정된 용량을 유지하기 위해 인스턴스를 추가하거나 종료한다.
+    - 웹 콘솔에서는 목표 용량을 그룹 크기라고도 표시하기도 한다.
+
+### **Application Load Balancer 대상 그룹 지정**
+
+Application Load Balancer를 사용해 Auto Scaling 그룹에 있는 인스턴스로 트래픽을 분산하려면 Auto Scaling 그룹을 만들 때 ALB 대상 그룹의 이름을 넣는다.  
+그러면 Auto Scaling이 새 인스턴스를 만들 때마다 자동으로 인스턴스를 ALB 대상 그룹에 추가한다.  
+
+### **애플리케이션 인스턴스 상태 검사**
+
+기본적으로 Auto Scaling은 EC2 상태 검사를 기반으로 인스턴스의 상태를 판정한다.  
+
+ALB를 사용해 트래픽을 인스턴스로 라우팅할 때 로드 밸런서 대상 그룹에 상태 검사를 구성할 수 있다.  
+대상 그룹 상태 검사는 200에서 499 범위의 HTTP 응답 코드를 검사한다.  
+
+ALB 상태 검사에서 인스턴스가 비정상으로 확인되면 그 인스턴스로 사용자의 트래픽이 전달되지 않도록 하고, Auto Scaling은 해당 인스턴스를 제거하고 대체 인스턴스를 만들어서 로드 밸런서의 대상 그룹에 추가해 새 인스턴스로 트래픽이 전달되도록 한다.  
+
+---
+
+## Amazon ELB (Elastic Load Balancing)
 
 [웹 서버 로드 밸런싱 | 서버 로드 밸런싱 | Amazon Web Services](https://aws.amazon.com/ko/elasticloadbalancing/)
 
-트래픽이 몰릴 경우 Auto Scaling과 같은 작업을 하여 트래픽을 분산시키는 서비스.  
+모든 EC2 인스턴스에 들어오는 애플리케이션 트래픽을 분산시키는 서비스.  
 On Premise의 L4 Switch와 동일한 역할을 한다.  
 
 AWS에서는 CLB(Classic Load Balancer), ALB(Application Load Balancer), NLB(Network Load Balancer) 총 3개의 로드벨런서가 있다. (출시순)  
@@ -134,6 +196,21 @@ EBS 볼륨을 암호화해서 데이터를 보호할 수 있고, 내부에서 �
 - 콜드 HDD (sc1)
     - 빈번하게 엑세스하지 않는 대용량 데이터 작업에 적합하다.
     - 250 IOPS 성능을 제공한다.
+
+### SSD VS. HDD
+
+- SSD
+    - small, random한 작업량(workload)
+    - transactional한 작업 (OLTP)
+    - IOPS 퍼포먼스가 필요한 비즈니스 애플리케이션, 데이터베이스 작업
+    - 비용이 비싸다.
+    - 주요 속성은 IOPS
+- HDD
+    - large, sequential한 작업량(workload)
+    - large streaming 작업
+    - 빅데이터, 데이터 웨어하우스, Log processing
+    - 비용이 싸다.
+    - 주요 속성은 처리량(Throughput)
 
 ---
 
@@ -302,6 +379,19 @@ Amazon S3 Glacier Deep Archive는 장기 보관이면서 데이터에 거의 액
 거리가 먼 클라이언트와 Amazon S3 버킷 간에 파일을 빠르고, 쉽고, 안전하게 전송할 수 있게 해준다.  
 전 세계적으로 분산된 Amazon CloudFront의 AWS 엣지 로케이션을 활용한다.  
 
+### **암호화**
+
+- 서버 측 암호화
+    - 데이터 객체를 암호화해서 디스크에 저장하는 작업과 데이터를 가져올 때 적합한 인증으로 복호화하는 작업이 이루어진다.
+    - 세 가지 종류의 서버 측 암호화가 있다.
+        - Amazon S3가 관리하는 암호화 키(SSE-S3)를 사용하면 AWS가 자체 엔터프라이즈 표준 키를 사용해 암호화와 복호화 프로세스의 모든 단계를 관리한다.
+        - AWS KMS-관리형 키를 사용하는 서버 측 암호화(SSE-KMS)를 사용하면 SSE-S3 기능에 더해 완벽한 키 사용 추적과 봉투 키를 사용할 수 있다.
+        - 고객 제공 암호화 키에 의한 서버 측 암호화(SSE-C)는 고객이 S3에 제공한 자체 키로 객체를 암호화한다.
+- 클라이언트 측 암호화
+    - AWS KMS-관리형 고객 마스터 키를 사용하여 업로드 전에 고유 키로 객체를 암호화한다.
+    - S3 암호화 클라이언트에서 제공된 클라이언트 측 마스터 키를 사용할 수도 있다.
+    - 보통은 서버 측 암호화를 사용하지만, 회사 조직의 규정 상 암호화 키의 모든 권한을 가지고 있어야 하는 경우 클라이언트 암호화를 사용해야 한다.
+
 ### Amazon S3가 관리하는 암호화 키(SSE-S3)를 사용하는 서버 측 암호화로 데이터 보호
 
 [Amazon S3가 관리하는 암호화 키(SSE-S3)를 사용하는 서버 측 암호화로 데이터 보호](https://docs.aws.amazon.com/ko_kr/AmazonS3/latest/dev/UsingServerSideEncryption.html)
@@ -368,6 +458,20 @@ Storage Gateway는 대용량 데이터를 적재하는 데에 적합하지 않�
 HTML, CSS, JS 및 이미지 파일과 같은 정적 및 동적 웹 콘텐츠를 사용자에게 더 빨리 배포하도록 지원하는 CDN(Content delivery network) 웹 서비스이다.  
 S3에 오리진 데이터를 넣어놓고 CloudFront를 연결한 후 글로벌한 CloudFront 엣지 로케이션에 배포할 수 있다.  
 
+### Origin Access Identity (OAI)
+
+Amazon S3 버킷을 CloudFront 배포의 오리진으로 처음 설정하면 모든 사용자에게 버킷의 파일에 대한 권한을 부여하게 된다.  
+이렇게 되면 누구나 CloudFront URL 혹은 S3 URL로 파일에 접근할 수 있게 된다.  
+
+CloudFront 서명된 URL 또는 서명된 쿠키를 사용하여 Amazon S3 버킷의 파일에 대한 액세스를 제한하는 경우에는 Amazon S3 URL로 Amazon S3 파일에 액세스하는 사용자도 차단하는 것이 좋다.  
+서명된 URL, 서명된 쿠키와 관계 없이 S3 URL이 있다면 해당 파일에 접근할 수 있기 때문이다.  
+
+따라서 다음과 같은 작업을 수행해야 한다.  
+
+- 특별한 CloudFront 사용자인 OAI를 만들고 배포와 연결한다.
+- OAI만 읽기 권한을 가지도록 Amazon S3 버킷 권한을 변경한다.
+    - S3 URL로 파일을 읽을 수 없다.
+
 ---
 
 ## Amazon CloudWatch
@@ -410,6 +514,10 @@ Pub/Sub 구조에서 사용되는 메시지 전송 관리형 서비스.
 
 ## Amazon Aurora
 
+[Amazon Aurora이란 무엇인가요?](https://docs.aws.amazon.com/ko_kr/AmazonRDS/latest/AuroraUserGuide/CHAP_AuroraOverview.html)
+
+MySQL 및 PostgreSQL과 호환되는 완전 관리형 관계형 데이터베이스 엔진.  
+
 ### instance cluster + endpoint
 
 Amazon Aurora 는 전형적으로 단일 인스턴스가 아닌 인스턴스 군을 포함한다.  
@@ -418,6 +526,21 @@ Aurora cluster에 접근하면, 호스트 이름과 포트번호로 endpoint라 
 
 Aurora에서는 각각의 인스턴스 군이 서로 다른 역할을 가져갈 수 있다.  
 endpoint를 사용하면 각각의 커넥션을 역할에 맞는 인스턴스 군으로 매핑할 수 있다.  
+
+- Cluster endpoint
+    - writer endpoint이다. primary DB와 연결된다.
+- Reader endpoint
+    - read-only 커넥션에 대한 load-balancing을 제공한다.
+
+### Amazon Aurora Parallel Query (병렬 쿼리)
+
+[Amazon Aurora MySQL용 Parallel Query 처리](https://docs.aws.amazon.com/ko_kr/AmazonRDS/latest/AuroraUserGuide/aurora-mysql-parallel-query.html)
+
+Amazon Aurora 병렬 쿼리는 데이터를 별도의 시스템으로 복사할 필요 없이 현재 데이터에 대한 `분석 쿼리`를 더 빠르게 제공하는 기능.  
+핵심 트랜잭션 워크로드의 처리량을 높게 유지하면서 쿼리 속도를 최대 100배로 높일 수 있다.  
+
+일부 데이터베이스는 하나 또는 몇 개 서버의 CPU에 걸쳐 쿼리 처리를 병렬화할 수 있지만, 병렬 쿼리는 Aurora의 고유한 아키텍처를 활용하여 Aurora 스토리지 계층에 있는 수천 개의 CPU 전체로 쿼리 처리를 `푸시 다운`하여 병렬화한다.  
+병렬 쿼리는 분석 쿼리 처리를 Aurora 스토리지 계층으로 오프로딩하여 트랜잭션 워크로드의 네트워크, CPU 및 버퍼 풀 경합을 줄인다.  
 
 ---
 
@@ -448,6 +571,13 @@ AWS 리소스들을 모델링하고 설정하여 해당 리소스의 프로비�
 [데이터 웨어하우스 | Redshift | Amazon Web Services](https://aws.amazon.com/ko/redshift/?whats-new-cards.sort-by=item.additionalFields.postDateTime&whats-new-cards.sort-order=desc)
 
 클라우드 데이터 웨어하우스. OLAP 환경에서 사용한다.  
+
+## AWS Fargate
+
+[AWS Fargate | 서버리스 컴퓨팅 엔진 | Amazon Web Services](https://aws.amazon.com/ko/fargate/?whats-new-cards.sort-by=item.additionalFields.postDateTime&whats-new-cards.sort-order=desc&fargate-blogs.sort-by=item.additionalFields.createdDate&fargate-blogs.sort-order=desc)
+
+컨테이너에 적합한 서버리스 컴퓨팅 엔진.  
+서버를 프로비저닝하고 관리할 필요가 없어 애플리케이션 빌드에만 초점을 맞출 수 있게 도와준다.  
 
 ## AWS LightSail
 
@@ -511,4 +641,23 @@ AWS Snowball과 비슷한 마이그레이션 툴.
 
 [Cognito | 계정 동기화 | Amazon Web Services](https://aws.amazon.com/ko/cognito/)
 
-사용자 인증 관리, 소셜 서비스 자격 증명 연동 등을 지원하는 인증 서비스.
+사용자 인증 관리, 소셜 서비스 자격 증명 연동 등을 지원하는 인증 서비스.  
+
+## AWS Shield
+
+[AWS Shield - Amazon Web Services(AWS)](https://aws.amazon.com/ko/shield/?whats-new-cards.sort-by=item.additionalFields.postDateTime&whats-new-cards.sort-order=desc)
+
+DDoS 공격으로부터 VPC를 보호하는 서비스.  
+
+## AWS App Mesh
+
+[AWS App Mesh - 모든 서비스를 위한 애플리케이션 수준의 네트워킹 - Amazon Web Services](https://aws.amazon.com/ko/app-mesh/)
+
+애플리케이션 레벨의 네트워킹을 통해 모든 서비스에 대한 통신 및 모니터링을 구축할 수 있는 서비스.  
+
+## AWS Cloud Map
+
+[Cloud Map - 클라우드 리소스를 위한 서비스 검색](https://aws.amazon.com/ko/cloud-map/)
+
+클라우드 리소스 검색 서비스.  
+애플리케이션 리소스에 사용자 지정 이름을 정의하고 동적으로 변화하는 리소스의 업데이트 위치를 유지 관리하여 애플리케이션 가용성을 향상시킨다.
