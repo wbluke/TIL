@@ -504,6 +504,17 @@ Amazon SQS는 최대 메시지 보존 기간을 넘겨 대기열에 존재해온
 
 ---
 
+## Amazon MQ
+
+[Amazon MQ란 무엇인가요?](https://docs.aws.amazon.com/ko_kr/amazon-mq/latest/developer-guide/welcome.html)
+
+관리형 메시지 브로커 서비스.  
+SQS, SNS와 다른 점은 다음과 같다.  
+온프레미스 환경에서 사용하던 코드를 클라우드 환경으로 그대로 옮기고 싶거나, MQTT, STOMP 등의 다양한 프로토콜 지원이 필요한 경우에 사용한다.  
+쉽게 말해 널리 사용되는 다양한 기존 메시지 브로커와 호환되는 서비스이다.  
+
+---
+
 ## Amazon SNS (Simple Notification Service)
 
 [Amazon SNS란 무엇인가요?](https://docs.aws.amazon.com/ko_kr/sns/latest/dg/welcome.html)
@@ -660,4 +671,11 @@ DDoS 공격으로부터 VPC를 보호하는 서비스.
 [Cloud Map - 클라우드 리소스를 위한 서비스 검색](https://aws.amazon.com/ko/cloud-map/)
 
 클라우드 리소스 검색 서비스.  
-애플리케이션 리소스에 사용자 지정 이름을 정의하고 동적으로 변화하는 리소스의 업데이트 위치를 유지 관리하여 애플리케이션 가용성을 향상시킨다.
+애플리케이션 리소스에 사용자 지정 이름을 정의하고 동적으로 변화하는 리소스의 업데이트 위치를 유지 관리하여 애플리케이션 가용성을 향상시킨다.  
+
+## AWS AppSync
+
+[AWS AppSync | 관리형 GraphQL API | Amazon Web Services](https://aws.amazon.com/ko/appsync/)
+
+GrappQL API 개발을 용이하게 하는 완전 관리형 서비스.  
+AWS DynamoDB, Lambda와 결합하여 사용할 수 있으며 성능을 위한 캐싱, 수백만 개 클라이언트의 실시간 데이터 업데이트를 지원한다.
