@@ -269,6 +269,13 @@ AWS 리전의 가용 영역들은 서로 프라이빗으로 연결돼 있으며,
 ENI는 인스턴스와 독립적으로 존재할 수 있는데, 먼저 ENI를 생성하고 나중에 인스턴스에 연결할 수 있다.  
 기존 ENI를 가져와서 기존 인스턴스에 보조 ENI로 연결할 수 있으며, 장애가 있는 인스턴스에서 ENI를 분리해 작동하고 있는 다른 인스턴스에 연결하면 트래픽을 장애 인스턴스에서 정상 인스턴스로 전환할 수 있다.  
 
+### VPC Peering Connection
+
+서로 다른 두 VPC 간에 트래픽을 라우팅할 수 있도록 하는 네트워킹 연결.  
+VPC 피어링 연결은 원활한 데이터 전송에 도움이 된다.  
+예를 들어 AWS 계정이 두 개 이상인 경우 이들 계정을 대상으로 VPC를 피어링하여 파일 공유 네트워크를 만들 수 있다.  
+VPC 피어링 연결을 사용하여 다른 VPC가 사용자의 VPC 중 하나에 있는 리소스에 액세스하도록 허용할 수도 있다.  
+
 ### 보안 그룹 (Security Group)
 
 EC2 인스턴스에 대한 방화벽 역할을 한다.  
@@ -678,4 +685,17 @@ DDoS 공격으로부터 VPC를 보호하는 서비스.
 [AWS AppSync | 관리형 GraphQL API | Amazon Web Services](https://aws.amazon.com/ko/appsync/)
 
 GrappQL API 개발을 용이하게 하는 완전 관리형 서비스.  
-AWS DynamoDB, Lambda와 결합하여 사용할 수 있으며 성능을 위한 캐싱, 수백만 개 클라이언트의 실시간 데이터 업데이트를 지원한다.
+AWS DynamoDB, Lambda와 결합하여 사용할 수 있으며 성능을 위한 캐싱, 수백만 개 클라이언트의 실시간 데이터 업데이트를 지원한다.  
+
+## AWS Mobile Hub
+
+[AWS Mobile Hub - 모바일 앱 빌드, 테스트 및 모니터링 | Amazon Web Services](https://aws.amazon.com/ko/blogs/korea/aws-mobile-hub-build-test-and-monitor-mobile-applications/)
+
+여러 AWS 서비스를 사용하여 모바일 앱 백엔드 기능을 쉽게 배포하고 구성할 수 있게 해주는 서비스.  
+
+## Amazon EMR
+
+[Amazon EMR이란 무엇입니까?](https://docs.aws.amazon.com/ko_kr/emr/latest/ManagementGuide/emr-what-is-emr.html)
+
+오픈소스를 활용한 클라우드 빅데이터 플랫폼.  
+대용량 빅데이터 분석으로 기계 학습, 실시간 스트리밍, 클릭스트림 분석, 유전체학 등에 사용된다.
