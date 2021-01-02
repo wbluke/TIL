@@ -244,6 +244,9 @@ VPC를 만든 후에도 보조 CIDR 블록을 지정할 수 있다.
 서브넷은 VPC 내 논리 컨테이너로서 EC2 인스턴스를 배치하는 장소다.  
 인스턴스를 서로 격리하고, 인스턴스 간 트래픽 흐름을 제어하고, 인스턴스를 기능별로 모을 수 있다.  
 
+- 각 서브넷은 단일 가용 영역과 매핑된다.
+- 생성한 모든 서브넷은 VPC의 메인 라우팅 테이블에 자동으로 매핑된다.
+
 ### **서브넷 CIDR 블록**
 
 서브넷의 CIDR은 VPC CIDR의 일부이면서, VPC 내에서 고유해야 한다.  
@@ -251,6 +254,15 @@ AWS는 모든 서브넷에서 처음 4개 IP 주소와 마지막 IP 주소를 �
 
 VPC는 보조 CIDR을 가질 수 있지만, 서브넷에는 하나의 CIDR만 있다.  
 VPC에 기본 CIDR과 보조 CIDR이 있는 경우, 그 중 하나에서 서브넷 CIDR을 생성할 수 있다.  
+
+### Default 서브넷
+
+기본 서브넷은 메인 라우팅 테이블이 인터넷 게이트웨이로 서브넷의 요청을 보내기 때문에 기본적으로 public 서브넷이다.  
+인터넷 게이트웨이로 향하는 기본 destination인 `0.0.0.0/0` 라우팅을 제거하고 private 서브넷으로 만들 수도 있다.  
+
+기본 서브넷에서 시작한 EC2 인스턴스는 public IPv4 주소와 private IPv4 주소를 모두 받을 수 있다.  
+반대로 기본 VPC 안의 일반 서브넷에서 시작한 인스턴스는 public 주소를 받지 못한다.  
+단, 일반 서브넷에서 인스턴스 시작 마법사로 인스턴스를 생성하면 public 주소 지정 속성이 예외적으로 true이다.   
 
 ### **가용 영역**
 
@@ -376,6 +388,17 @@ S3에는 Lifecycle Configuration이 있다.
 
 Amazon S3 Glacier는 데이터 보관 및 장기 백업을 위한 안전하고 안정적이며 비용이 매우 저렴한 Amazon S3 스토리지 클래스.  
 
+아카이브를 가져올 때 다음 중 한 가지를 지정하여 가져올 수 있다.  
+
+- 표준
+    - 3~5 시간 안에 검색
+- 벌크
+    - 보통 5~12시간 정도로 대용량 데이터를 가져온다. 가장 저렴한 옵션이다.
+- 신속 (Expedited Retrievals)
+    - 몇 분 내로 신속하게 검색해야 하는 경우
+    - 프로비저닝된 용량(Provisioned capacity)을 구매해야 모든 상황에 대해 신속 검색을 수행할 수 있다. (구매 안해도 신속 검색은 가능)
+    - 각 용량 단위로 5분마다 신속 검색 3회를 수행할 수 있고, 최대 150MB/s의 검색 처리량이 제공된다.
+
 ### Amazon S3 Glacier Deep Archive
 
 Amazon S3 Glacier는 장기 보관용이지만 신속 검색을 사용하여 몇 분 안에 데이터에 접근할 수 있다.  
@@ -481,6 +504,32 @@ CloudFront 서명된 URL 또는 서명된 쿠키를 사용하여 Amazon S3 버�
 
 ---
 
+## Amazon Route 53
+
+[Amazon Route 53(이)란 무엇입니까?](https://docs.aws.amazon.com/ko_kr/Route53/latest/DeveloperGuide/Welcome.html)
+
+가용성과 확장성이 우수한 DNS 웹 서비스.  
+
+- 도메인 이름 등록
+- 인터넷 트래픽을 도메인의 리소스로 라우팅
+    - 도메인 혹은 하위 도메인 요청에 대해 브라우저를 웹 사이트 또는 웹 애플리케이션에 연결하도록 돕는다.
+- 리소스의 상태 확인
+    - 웹 서버 같은 리소스로 자동화된 요청을 보내어 접근 및 사용이 가능하고 정상 작동 중인지 확인.
+    - 리소스 사용 불가 시 알림을 수신하고 다른 곳으로 트래픽을 라우팅할 수 있다.
+
+### Active-Active Failover, Active-Passive Failover
+
+액티브-액티브 장애 조치는 모든 리소스를 대부분의 시간 동안 사용 가능하도록 하는 설정이다.  
+액티브-패시브 장애 조치는 기본 리소스 그룹이 대부분의 시간 동안 사용 가능하도록 하고 보조 리소스 그룹은 대기 상태에 놓은 설정이다.  
+
+- 하나의 기본 및 보조 리소스를 사용한 액티브-패시브 장애 조치 구성
+- 여러 개의 기본 및 보조 리소스를 사용한 액티브-패시브 장애 조치 구성
+- 가중치 레코드를 사용하여 액티브-액티브, 액티브-패시브 장애 조치 구성
+    - 레코드 별로 가중치를 설정하여 DNS 쿼리에 응답.
+    - 가중치가 0인 레코드는 0이 아닌 가중치의 레코드가 비정상일 경우에만 쿼리에 응답.
+
+---
+
 ## Amazon CloudWatch
 
 [Amazon CloudWatch이란 무엇입니까?](https://docs.aws.amazon.com/ko_kr/AmazonCloudWatch/latest/monitoring/WhatIsCloudWatch.html)
@@ -509,6 +558,23 @@ Amazon SQS는 최대 메시지 보존 기간을 넘겨 대기열에 존재해온
 기본 메시지 보존 기간(retention period)은 4일이다.  
 하지만 설정을 통해 메시지 보존 기간을 60초에서 최대 14일까지로 변경할 수 있다.  
 
+- 표준 대기열
+    - 각 메시지의 최소 1회 전달을 보장한다.
+    - 정확한 순서를 보장하지 않는다.
+- FIFO 대기열
+    - 정확히 1회 처리함을 보장한다.
+    - 정확한 순서를 보장한다.
+
+---
+
+## Amazon SNS (Simple Notification Service)
+
+[Amazon SNS란 무엇인가요?](https://docs.aws.amazon.com/ko_kr/sns/latest/dg/welcome.html)
+
+Pub/Sub 구조에서 사용되는 메시지 전송 관리형 서비스.  
+
+SQS가 `폴링` 모델인 반면에 SNS는 다수의 구독자에게 `푸시` 매커니즘으로 메시지를 보낸다.  
+
 ---
 
 ## Amazon MQ
@@ -522,11 +588,25 @@ SQS, SNS와 다른 점은 다음과 같다.
 
 ---
 
-## Amazon SNS (Simple Notification Service)
+## Amazon RDS
 
-[Amazon SNS란 무엇인가요?](https://docs.aws.amazon.com/ko_kr/sns/latest/dg/welcome.html)
+[Amazon Relational Database Service(Amazon RDS)란 무엇입니까?](https://docs.aws.amazon.com/ko_kr/AmazonRDS/latest/UserGuide/Welcome.html)
 
-Pub/Sub 구조에서 사용되는 메시지 전송 관리형 서비스.  
+### Read Replica
+
+Amazon RDS 읽기 전용 복제본은 RDS 인스턴스의 성능과 내구성을 높여준다.  
+읽기 전용 복제본을 사용하면 손쉽게 단일 DB 인스턴스를 탄력적으로 확장하여 읽기 중심의 데이터베이스 워크로드를 처리할 수 있다.  
+필요한 경우 읽기 전용 복제본은 독립 실행형 DB 인스턴스로 승격될 수 있다.  
+
+- 다중 AZ 배포
+    - 고가용성이 주요 목적
+    - 동기식 복제. (Aurora는 비동기식 복제)
+- 다중 리전 배포
+    - 재해 복구 및 로컬 성능이 주요 목적
+    - 비동기식 복제
+- 읽기 전용 복제본
+    - 확장성이 주요 목적
+    - 비동기식 복제
 
 ---
 
@@ -580,6 +660,8 @@ DAX는 완전 관리형 In-Memory Read Performance를 향상시켜주는 인메�
 
 AWS 리소스들을 모델링하고 설정하여 해당 리소스의 프로비저닝과 구성을 담당해주는 서비스.  
 
+CloudFormation에 대한 사용 요금은 없고, 대신 이를 통해 생성한 AWS 리소스에 대해서만 사용한 만큼 가격을 지불하면 된다.  
+
 ---
 
 # 기타 서비스
@@ -610,6 +692,18 @@ LightSail의 대상은 AWS의 EC2, EBS, VPC, 그리고 Route53 같은 무수한 
 [실시간 데이터 분석 처리 시스템 | Amazon Web Services](https://aws.amazon.com/ko/kinesis/)
 
 실시간 비디오, 실시간 스트리밍 데이터를 수집, 처리, 분석할 수 있는 서비스.  
+
+- Kinesis Video Streams
+    - 머신러닝, 분석, 재생 등을 위해 비디오를 스트리밍하는 서비스.
+- Kinesis Data Streams
+    - 고도로 확장 가능하고 내구력 있는 실시간 데이터 스트리밍 서비스.
+    - 웹 사이트 클릭스트림, 데이터베이스 이벤트 스트림, 금융 트랜잭션, 소셜 미디어 피드, IT 로그 및 위치 추적 이벤트 등
+    - Amazon S3, AWS Lambda에 제공할 수 있다.
+- Kinesis Data Firehose
+    - 스트리밍 데이터를 데이터 레이크, 데이터 스토어 및 분석 서비스에 안정적으로 로드.
+    - Amazon S3, Amazon Redshift, Amazon Elasticsearch Service, 일반 HTTP 엔드포인트 및 Datadog, New Relic, MongoDB, Splunk와 같은 서비스 공급자로 전송
+- Kinesis Data Analytics
+    - 데이터 스트림 처리를 위한 오픈 소스 프레임워크 서버리스 엔진인 Apache Flink를 통해 실시간으로 스트리밍 데이터를 변환 및 분석.
 
 ## Amazon SES (Simple Email Service)
 
@@ -667,6 +761,12 @@ AWS Snowball과 비슷한 마이그레이션 툴.
 
 DDoS 공격으로부터 VPC를 보호하는 서비스.  
 
+## AWS WAF (Web Application Firewall)
+
+[AWS WAF - 웹 애플리케이션 방화벽 - Amazon Web Services(AWS)](https://aws.amazon.com/ko/waf/)
+
+가용성에 영향을 주거나, 보안을 위협하거나, 리소스를 과도하게 사용하는 일반적인 웹 공격으로부터 웹 애플리케이션이나 API를 보호하는 웹 애플리케이션 방화벽.  
+
 ## AWS App Mesh
 
 [AWS App Mesh - 모든 서비스를 위한 애플리케이션 수준의 네트워킹 - Amazon Web Services](https://aws.amazon.com/ko/app-mesh/)
@@ -698,4 +798,10 @@ AWS DynamoDB, Lambda와 결합하여 사용할 수 있으며 성능을 위한 �
 [Amazon EMR이란 무엇입니까?](https://docs.aws.amazon.com/ko_kr/emr/latest/ManagementGuide/emr-what-is-emr.html)
 
 오픈소스를 활용한 클라우드 빅데이터 플랫폼.  
-대용량 빅데이터 분석으로 기계 학습, 실시간 스트리밍, 클릭스트림 분석, 유전체학 등에 사용된다.
+대용량 빅데이터 분석으로 기계 학습, 실시간 스트리밍, 클릭스트림 분석, 유전체학 등에 사용된다.  
+
+## AWS EFA (Elastic Fabric Adapter)
+
+[Elastic Fabric Adapter(EFA)](https://docs.aws.amazon.com/ko_kr/AWSEC2/latest/UserGuide/efa.html)
+
+EC2 인스턴스에 연결하여 HPC(고성능 컴퓨팅) 및 기계 학습 애플리케이션 속도를 높일 수 있는 네트워크 디바이스.
