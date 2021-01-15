@@ -291,6 +291,8 @@ AWS 리전의 가용 영역들은 서로 프라이빗으로 연결돼 있으며,
 ENI는 인스턴스와 독립적으로 존재할 수 있는데, 먼저 ENI를 생성하고 나중에 인스턴스에 연결할 수 있다.  
 기존 ENI를 가져와서 기존 인스턴스에 보조 ENI로 연결할 수 있으며, 장애가 있는 인스턴스에서 ENI를 분리해 작동하고 있는 다른 인스턴스에 연결하면 트래픽을 장애 인스턴스에서 정상 인스턴스로 전환할 수 있다.  
 
+ENI는 인스턴스가 stopped 상태가 되더라도 분리되지 않는다.  
+
 ### VPC Peering Connection
 
 서로 다른 두 VPC 간에 트래픽을 라우팅할 수 있도록 하는 네트워킹 연결.  
@@ -602,6 +604,13 @@ SQS, SNS와 다른 점은 다음과 같다.
 
 [Amazon Relational Database Service(Amazon RDS)란 무엇입니까?](https://docs.aws.amazon.com/ko_kr/AmazonRDS/latest/UserGuide/Welcome.html)
 
+### 고가용성 다중 AZ 배포
+
+[Amazon RDS를 위한 고가용성(다중 AZ)](https://docs.aws.amazon.com/ko_kr/AmazonRDS/latest/UserGuide/Concepts.MultiAZ.html)
+
+다중 AZ 배포에서 Amazon RDS는 서로 다른 가용 영역에 동기식 예비 복제본(Synchronous Standby)을 프로비저닝하고 유지한다.  
+다만, 고가용성 기능은 읽기 전용 시나리오의 솔루션과 다르므로, 예비 복제본을 사용하여 읽기 트래픽을 지원할 수는 없다.  
+
 ### Read Replica
 
 Amazon RDS 읽기 전용 복제본은 RDS 인스턴스의 성능과 내구성을 높여준다.  
@@ -814,4 +823,11 @@ AWS DynamoDB, Lambda와 결합하여 사용할 수 있으며 성능을 위한 �
 
 [Elastic Fabric Adapter(EFA)](https://docs.aws.amazon.com/ko_kr/AWSEC2/latest/UserGuide/efa.html)
 
-EC2 인스턴스에 연결하여 HPC(고성능 컴퓨팅) 및 기계 학습 애플리케이션 속도를 높일 수 있는 네트워크 디바이스.
+EC2 인스턴스에 연결하여 HPC(고성능 컴퓨팅) 및 기계 학습 애플리케이션 속도를 높일 수 있는 네트워크 디바이스.  
+
+## AWS Direct Connect
+
+[AWS Direct Connect](https://aws.amazon.com/ko/directconnect/)
+
+온프레미스에서 AWS로 전용 네트워크 연결을 쉽게 설정할 수 있는 클라우드 서비스 솔루션.  
+대역폭 사용량이 많은 워크로드에서 비용 절감 효과.
