@@ -222,6 +222,8 @@ Provisioned IOPS SSD EBS volume (io1)를 사용하면서 `Nitro-based EC2`를 �
 EBS 데이터 볼륨, 부팅 볼륨, 스냅샷에 대한 암호화를 제공한다.  
 Amazon 관리 키 또는 AWS KMS를 사용하여 생성된 키로 데이터를 암호화한다.  
 
+SSE(Server Side Encryption)는 S3의 옵션이지 EBS의 옵션은 아니다.  
+
 ---
 
 ## VPC (Virtual Private Cloud)
@@ -300,6 +302,17 @@ VPC 피어링 연결은 원활한 데이터 전송에 도움이 된다.
 예를 들어 AWS 계정이 두 개 이상인 경우 이들 계정을 대상으로 VPC를 피어링하여 파일 공유 네트워크를 만들 수 있다.  
 VPC 피어링 연결을 사용하여 다른 VPC가 사용자의 VPC 중 하나에 있는 리소스에 액세스하도록 허용할 수도 있다.  
 
+[지원되지 않는 VPC 피어링 구성](https://docs.aws.amazon.com/ko_kr/vpc/latest/peering/invalid-peering-configurations.html)
+
+지원되지 않는 피어링 구성
+
+- 겹치는 CIDR 블록
+    - 중첩되는 CIDR 블록이 있으면 VPC 피어링 연결을 만들 수 없다.
+- 전이적 피어링 (transitive peering)
+    - A-B-C 로 연결되어 있을 때, VPC B를 통해 VPC A에서 VPC C로 직접 패킷을 라우팅할 수 없다.
+- 게이트웨이 또는 private 연결을 통한 엣지 간 라우팅
+    - A-B 연결에서 B에 인터넷 게이트웨이를 통핸 인터넷 연결, AWS Direct Connect 연결, 프라이빗 서브넷에서 NAT 디바이스를 통한 인터넷 연결 등이 있는 경우, A에서 해당 외부 연결에 있는 리소스에 액세스할 수 없다.
+
 ### 보안 그룹 (Security Group)
 
 EC2 인스턴스에 대한 방화벽 역할을 한다.  
@@ -318,7 +331,7 @@ EC2 인스턴스에 대한 방화벽 역할을 한다.
 - 서브넷 레벨에서 운영
 - 허용 및 거부 규칙 지원
 - 상태 비저장: 반환 트래픽이 규칙에 의해 명시적으로 허용되어야 함
-- 트래픽 허용 여부를 결정할 때 번호가 가장 낮은 규칙부터 순서대로 규칙을 처리
+- 트래픽 허용 여부를 결정할 때 **번호가 가장 낮은 규칙부터 순서대로** 규칙을 처리
 - 연결된 서브넷의 모든 인스턴스에 자동 적용됨(보안 그룹 규칙이 지나치게 허용적일 경우 추가 보안 계층 제공)
 
 ### Internet Gateway (IGW)
@@ -690,6 +703,7 @@ CloudFormation에 대한 사용 요금은 없고, 대신 이를 통해 생성한
 [데이터 웨어하우스 | Redshift | Amazon Web Services](https://aws.amazon.com/ko/redshift/?whats-new-cards.sort-by=item.additionalFields.postDateTime&whats-new-cards.sort-order=desc)
 
 클라우드 데이터 웨어하우스. OLAP 환경에서 사용한다.  
+열 기반 스토리지(columnar storage)도 지원한다.  
 
 ## AWS Fargate
 
