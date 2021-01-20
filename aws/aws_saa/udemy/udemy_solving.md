@@ -526,6 +526,16 @@ Storage Gateway는 대용량 데이터를 적재하는 데에 적합하지 않�
 HTML, CSS, JS 및 이미지 파일과 같은 정적 및 동적 웹 콘텐츠를 사용자에게 더 빨리 배포하도록 지원하는 CDN(Content delivery network) 웹 서비스이다.  
 S3에 오리진 데이터를 넣어놓고 CloudFront를 연결한 후 글로벌한 CloudFront 엣지 로케이션에 배포할 수 있다.  
 
+### Signed URL & Signed Cookies
+
+- Signed URL
+    - RTMP(Real Time Message Protocol)을 지원한다.
+    - 개별 파일에 제한을 둘 수 있다.
+- Signed Cookies
+    - RTMP(Real Time Message Protocol)을 지원하지 않는다.
+    - 여러 파일들에 한꺼번에 제한 조건을 걸 수 있다.
+    - 현 URL을 변경하지 않아도 된다.
+
 ### Origin Access Identity (OAI)
 
 Amazon S3 버킷을 CloudFront 배포의 오리진으로 처음 설정하면 모든 사용자에게 버킷의 파일에 대한 권한을 부여하게 된다.  
@@ -573,6 +583,19 @@ CloudFront 서명된 URL 또는 서명된 쿠키를 사용하여 Amazon S3 버�
 [Amazon CloudWatch이란 무엇입니까?](https://docs.aws.amazon.com/ko_kr/AmazonCloudWatch/latest/monitoring/WhatIsCloudWatch.html)
 
 실시간으로 실행 중인 애플리케이션을 여러가지 지표로 모니터링할 수 있는 도구.  
+
+### 지표
+
+- 기본 제공 지표
+    - CPU Utilization
+    - Network Utilization In/Out
+    - Disk Reads/Write
+- custom 하게 만들 수 있는 지표
+    - Memory Utilization
+    - Disk Swap Utilization
+    - Disk Space Utilization
+    - Page File Utilization
+    - Log Collection
 
 ---
 
@@ -693,9 +716,74 @@ Amazon Aurora 병렬 쿼리는 데이터를 별도의 시스템으로 복사할 
 
 완전 관리형 NoSQL 데이터베이스.  
 
+### 완전 관리형
+
+프로비저닝, 복제, 버전 관리, 클러스터 확장 등을 모두 관리해준다.  
+워크로드 수요에 맞춰 자동으로 처리 능력을 확장하며 테이블 크기가 증가함에 따라 데이터를 파티셔닝 및 재파티셔닝한다.  
+AWS 리전의 세 개 시설에 데이터를 동기적으로 복제하여 높은 가용성과 데이터 안정성을 제공한다.  
+
+### 일관성 모델
+
+- 최종적 일관된 읽기 (기본값)
+    - 읽기 처리량을 최대화
+    - 최근 완료한 쓰기 결과를 반영하지 못할 수 있다.
+- 강력한 일관된 읽기
+    - 읽기 전에 성공적인 응답을 수신한 모든 쓰기를 반영한 결과를 반환한다.
+- ACID 트랜잭션
+    - 단일 AWS 계정 및 지역에서 ACID(원자성, 일관성, 격리성, 지속성)를 제공한다.
+    - 여러 항목에 대한 통합된 삽입, 삭제, 업데이트가 필요한 애플리케이션을 구축하는 경우 트랜잭션을 사용할 수 있다.
+
+### 기본 키
+
+기본 키는 `단일 속성 파티션 키` 또는 `복합 파티션-정렬 키` 중 하나가 된다. (단일 키는 파티션 키, 해시값으로 파티셔닝한다.)  
+DynamoDB는 복합 파티션-정렬 키를 파티션 키 요소 및 정렬 키 요소로 인덱싱한다.  
+복합 파티션-정렬 키를 사용하는 경우 첫 번째와 두 번째 요소 값 사이의 계층 구조가 유지된다.  
+
+### 보조 인덱스
+
+테이블에서 하나 이상의 보조 인덱스를 생성할 수 있다.  
+
+- 글로벌 보조 인덱스
+    - 파티션 키 및 정렬 키가 테이블의 파티션 키 및 정렬 키와 다를 수 있는 인덱스
+    - 테이블당 20개 (기본 할당량)
+- 로컬 보조 인덱스
+    - 테이블과 파티션 키는 동일하지만 정렬 키는 다른 인덱스
+    - 테이블당 5개 (기본 할당량)
+
+### 데이터 쿼리
+
+DynamoDB 콘솔 또는 `CreateTable` API를 사용하여 테이블을 만든다.  
+`PutItem` 또는 `BatchWriteItem` API를 사용하여 항목을 삽입하고, `GetItem` 또는 `BatchGetItem` 을 사용하거나,  
+복합 기본 키가 활성화되어 사용되고 있는 경우는 `Query API` 를 사용하여 테이블에 추가한 항목을 검색할 수 있다.  
+
+### 요금
+
+각 DynamoDB 테이블에는 프로비저닝된 읽기 처리량과 쓰기 처리량이 지정되어 있다.  
+프리 티어를 초과하는 경우 그 처리 능력에 1시간 단위로 요금이 부과되고, 테이블로 요청을 전송했는지 여부와 관계없이 처리 능력에 대해 시간당 요금이 부과된다.  
+테이블의 프로비저닝된 처리 능력을 변경하려면 Console이나 Auto Scaling용 `UpdateTable` 또는 `PutScalingPolicy` API를 사용하면 된다.  
+
+### 프로비저닝 처리량
+
+단일 테이블에 프로비저닝할 수 있는 최대 처리량은 무제한이다.  
+최소 처리량은 1개의 쓰기 용량 유닛과 1개의 읽기 용량 유닛이고, 전체 테이블의 용량을 합산하여 1개 계정에서 각 25개 유닛까지 프리 티어 범위이다.  
+
 ### **Amazon DynamoDB Accelerator (DAX)**
 
 DAX는 완전 관리형 In-Memory Read Performance를 향상시켜주는 인메모리 캐시 서비스이다.  
+
+### DynamoDB Stream
+
+테이블의 실시간 데이터 수정 이벤트를 캡처하는 기능.  
+테이블에서 스트림을 설정하면 다음과 같은 이벤트가 발생할 때마다 스트림 레코드를 기록한다.  
+
+- 테이블에 새 항목이 추가되는 경우, 모든 속성을 포함하여 전체 항목의 이미지 캡처
+- 항목이 업데이트 되는 경우, 수정된 속성의 이전 및 이후 이미지 캡처
+- 항목이 삭제되는 경우, 삭제하기 전의 전체 항목 이미지 캡처
+
+스트림 레코드의 수명은 24시간이다.  
+각 스트림 기록은 스트림에서 한 번만 나타나고, 실제 항목 수정과 동일한 순서로 나타난다.  
+
+스트림과 Lambda를 결합하여 새로운 유저가 생성된 경우에 SES를 통해 이메일을 보내도록 하는 기능 등을 설계할 수 있다.  
 
 ---
 
@@ -864,4 +952,29 @@ EC2 인스턴스에 연결하여 HPC(고성능 컴퓨팅) 및 기계 학습 애�
 
 [AWS Global Accelerator(이)란 무엇입니까?](https://docs.aws.amazon.com/ko_kr/global-accelerator/latest/dg/what-is-global-accelerator.html)
 
-글로벌 트래픽이 최적의 엔드포인트로 연결되도록 해서 지연시간을 줄여주는 서비스.
+글로벌 트래픽이 최적의 엔드포인트로 연결되도록 해서 지연시간을 줄여주는 서비스.  
+
+## Amazon Macie
+
+[Amazon Macie - Amazon Web Services](https://aws.amazon.com/ko/macie/)
+
+완전 관리형 데이터 보안 및 프라이버시 서비스.  
+보안적으로 민감한 데이터에 대한 기계 학습 및 검색, 패턴 일치를 수행할 수 있다.  
+
+## Amazon Rekognition
+
+[Amazon Rekognition - 비디오 및 이미지 - AWS](https://aws.amazon.com/ko/rekognition/?blog-cards.sort-by=item.additionalFields.createdDate&blog-cards.sort-order=desc)
+
+딥러닝으로 이미지 및 비디오 분석을 할 수 있는 서비스.  
+
+## Amazon GuradDuty
+
+[Amazon GuardDuty - 지능형 위협 탐지 - AWS](https://aws.amazon.com/ko/guardduty/)
+
+AWS 환경 내의 악의적 활동, 무단 동작을 지속적으로 모니터링하는 위협 탐지 서비스.  
+
+## Amazon Inspector
+
+[Amazon Inspector - Amazon Web Services(AWS)](https://aws.amazon.com/ko/inspector/)
+
+애플리케이션의 보안 취약성 및 규정 준수 여부를 자동으로 평가하는 서비스.
