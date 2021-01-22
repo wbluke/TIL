@@ -4,22 +4,6 @@
 
 EC2는 물리 서버의 기능을 가상화했지만 실제 서버와 유사하게 작동하며, 스토리지, 메모리, 네트워크 인터페이스, OS가 새로 설치된 기본 드라이브가 제공된다.  
 
-### **EC2 AMI**
-
-AMI(Amazon Machine Image)에는 다음과 같이 4가지 종류가 있다.  
-
-- Amazon 빠른 시작 AMI
-    - 다양한 리눅스 배포판, Windows Server OS, 딥러닝, 데이터베이스 등의 공통 작업을 위한 특수 이미지가 포함된다.
-    - 가장 많이 사용하고 Amazon에서 항상 최신버전으로 공식 지원한다.
-- AWS Marketplace AMI
-    - 프로덕션 환경에서 사용 가능한 공식 이미지
-- 커뮤니티 AMI
-    - 특정한 요구에 맞도록 독립 공급업체가 제작하고 관리한다.
-- 프라이빗 AMI
-    - 사용자가 자체 배포한 인스턴스에서 이미지를 생성해서 저장하면 자체 프라이빗 AMI를 만들 수 있다.
-
-일부 AMI는 특정 리전에서 사용할 수 없으므로 배포 시에 이를 고려해야 한다.  
-
 ### 인스턴스 수명 주기 & 요금
 
 - `pending`
@@ -323,6 +307,19 @@ EC2 인스턴스에 대한 방화벽 역할을 한다.
 - 트래픽 허용 여부를 결정할 때 **번호가 가장 낮은 규칙부터 순서대로** 규칙을 처리
 - 연결된 서브넷의 모든 인스턴스에 자동 적용됨(보안 그룹 규칙이 지나치게 허용적일 경우 추가 보안 계층 제공)
 
+### VPC 엔드포인트
+
+VPC와 AWS 서비스를 private 연결할 수 있도록 한다.  
+
+- **엔드포인트 서비스**
+    - VPC에 있는 자체 애플리케이션. 다른 AWS 보안 주체는 VPC에서 사용자의 엔드포인트 서비스로 이어지는 연결을 생성할 수 있다.
+- **게이트웨이 엔드포인트**
+    - 전달되는 트래픽에 대한 라우팅 테이블에서 경로의 대상으로 지정하는 게이트웨이입니다. 다음 AWS 서비스가 지원됩니다.
+        - Amazon S3
+        - DynamoDB
+- **인터페이스 엔드포인트**
+    - 프라이빗 IP 주소를 가진 탄력적 네트워크 인터페이스이며, 지원되는 서비스로 전달되는 트래픽에 대한 진입점 역할을 하는 서브넷의 IP 주소 범위에 있습니다. 인터페이스 엔드포인트는 AWS PrivateLink로 지원하며, 이 기술을 통해 프라이빗 IP 주소를 사용하여 서비스에 비공개로 액세스할 수 있습니다. AWS PrivateLink는 VPC와 서비스 간의 모든 네트워크 트래픽을 Amazon 네트워크로 제한합니다. 인터넷 게이트웨이, NAT 디바이스 또는 가상 프라이빗 게이트웨이가 필요 없습니다.
+
 ### Internet Gateway (IGW)
 
 인터넷 게이트웨이는 퍼블릭 IP 주소를 할당받은 인스턴스가 인터넷과 연결돼서 인터넷으로부터 요청을 수신하는 기능을 제공한다.  
@@ -498,6 +495,21 @@ Storage Gateway는 대용량 데이터를 적재하는 데에 적합하지 않�
 보통 변경된 데이터나 압축된 데이터에만 적절하다.  
 대용량 데이터를 적재하고 싶다면 대신 AWS DataSync를 사용해야 한다.  
 
+### 파일 게이트웨이
+
+- NFS(Network File System) 및 SMB(Server Message Block) 같은 업계 표준 파일 프로토콜을 사용하여 Amazon S3에서 객체를 저장하고 검색
+
+### 볼륨 게이트웨이
+
+- 캐시된 볼륨 아키텍처
+    - 캐시 볼륨으로 Amazon S3를 기본 데이터 스토리지로 사용함과 동시에 자주 액세스하는 데이터를 스토리지 게이트웨이에 로컬 보관
+- 저장된 볼륨 아키텍처
+    - 저장 볼륨을 사용하여 기본 데이터를 로컬에 저장하는 한편, 해당 데이터를 AWS에 비동기식으로 백업
+
+### 테이프 게이트웨이
+
+- 백업 데이터를 비용 효율 및 내구성이 좋은 방식으로 GLACIER 또는 DEEP_ARCHIVE에 보관
+
 ---
 
 ## AWS DataSync
@@ -516,6 +528,15 @@ Storage Gateway는 대용량 데이터를 적재하는 데에 적합하지 않�
 완전 관리형 파일 시스템.  
 파일 추가/삭제에 따라 자동으로 용량이 확장/축소된다.  
 강한 일관성과 file locking이 필요한 경우 사용.  
+
+---
+
+## Amazon FSx for Windows File Server
+
+[Amazon FSx for Windows File Server이란 무엇입니까?](https://docs.aws.amazon.com/ko_kr/fsx/latest/WindowsGuide/what-is.html)
+
+완전 관리형 Windows 파일 시스템.  
+Amazon FSx 은 Windows 파일 시스템 기능과 네트워크상에서 파일 스토리지에 액세스할 수 있는 업계 표준 SMB(Server Message Block) 프로토콜을 기본적으로 지원한다.  
 
 ---
 
@@ -549,6 +570,11 @@ CloudFront 서명된 URL 또는 서명된 쿠키를 사용하여 Amazon S3 버�
 - 특별한 CloudFront 사용자인 OAI를 만들고 배포와 연결한다.
 - OAI만 읽기 권한을 가지도록 Amazon S3 버킷 권한을 변경한다.
     - S3 URL로 파일을 읽을 수 없다.
+
+### Lambda@Edge
+
+서버를 프로비저닝하거나 관리하지 않고 글로벌 AWS 엣지 로케이션에서 코드를 실행할 수 있으므로 네트워크 지연 시간을 최소화하여 최종 사용자에게 응답할 수 있다.  
+Node.js/Python 코드를 AWS Lambda에 업로드하고 Amazon CloudFront 요청에 대한 응답으로 함수가 트리거되도록 구성하면 된다.  
 
 ---
 
@@ -597,6 +623,13 @@ CloudFront 서명된 URL 또는 서명된 쿠키를 사용하여 Amazon S3 버�
     - Page File Utilization
     - Log Collection
 
+### CloudWatch Logs
+
+애플리케이션 및 사용자 정의 로그 파일을 이용하여 모니터링.  
+
+- 실시간 애플리케이션 및 시스템 모니터링
+- 로그 장기 보존
+
 ---
 
 ## Amazon API Gateway
@@ -626,6 +659,37 @@ Amazon SQS는 최대 메시지 보존 기간을 넘겨 대기열에 존재해온
     - 정확히 1회 처리함을 보장한다.
     - 정확한 순서를 보장한다.
 
+### 데드레터큐 (DLQ)
+
+제대로 처리하지 못한 메시지를 구분하여 메시지 전송 실패를 처리할 수 있다.  
+성공적으로 처리(소비)할 수 없는 메시지의 대상을 지정할 수 있다.  
+자동으로 생성되지는 않고 따로 대기열을 생성해야 한다.  
+
+FIFO 대기열의 DLQ도 FIFO여야 하고, 표준 대기열의 DLQ도 표준 대기열이어야 한다.  
+동일한 AWS 계정을 사용해야 하고, 같은 리전에 있어야 한다.  
+
+DLQ의 보존 기간은 원래 대기열의 보존 기간을 합친 기간이기 때문에 (원래 메시지의 조회 타임스탬프 기준) DLQ의 보존 기간을 원래 대기열의 보존 기간보다 길게 설정하는 것이 좋다.  
+(원래 대기열에서 1일 경과하고 DLQ의 보존 기간이 4일인 경우, 3일 뒤에 DLQ에서 해당 메시지가 삭제된다.)  
+
+### 메시지 삭제
+
+`PurgeQueue` 작업을 사용하여 대기열에 있는 모든 메시지를 삭제할 수 있다.  
+특정 메시지만 사용하려면 `DeleteMessage` , `DeleteMessageBatch` 작업을 사용한다.  
+
+### 긴 폴링
+
+`ReceiveMessage` API 작업에 대한 대기 시간이 0보다 큰 경우 긴 폴링이 유효하다.  
+긴 폴링 대기 시간의 최대값은 20초다.  
+긴 폴링은 빈 응답 수를 줄여서 사용 비용을 줄여줄 수 있다.  
+
+### FIFO 대기열
+
+중복 메시지가 절대 유입되지 않는다.  
+
+- 메시지 그룹
+    - FIFO 대기열 내에서 메시지들은 서로 구별되고 순서가 지정된 `번들` 로 그룹화된다.
+    - 메시지 그룹 ID 값이 다른 메시지는 다른 순서로 전송 및 수신될 수 있다. 메시지 그룹 ID를 메시지와 연결해야 한다.
+
 ---
 
 ## Amazon SNS (Simple Notification Service)
@@ -653,18 +717,44 @@ SQS, SNS와 다른 점은 다음과 같다.
 
 [Amazon Relational Database Service(Amazon RDS)란 무엇입니까?](https://docs.aws.amazon.com/ko_kr/AmazonRDS/latest/UserGuide/Welcome.html)
 
+RDS는 관계형 데이터베이스를 운영 및 확장할 수 있는 관리형 서비스다.  
+주의할 점은 완전 관리형 서비스가 아닌 관리형 서비스이기 때문에, 스케일업, 읽기전용 복제본 등의 확장을 사용자가 구축해야 한다.  
+
+### 자동 백업 및 데이터베이스 스냅샷
+
+RDS는 인스턴스 백업 및 복구를 위해 두 가지 방법을 제공한다.  
+
+- 자동 백업
+    - 자동 백업을 활성화하면 매일 자동으로 기본 백업 기간 내에 스냅샷을 만들고, 트랜잭션 로그를 캡처한다.
+    - 특정 시점으로 복구를 시작할 때, 가장 적합한 일일 백업에 트랜잭션 로그가 적용된다.
+    - 백업 보존 기간은 기본적으로 1일이지만 최대 35일까지 설정할 수 있다. (API, CLI를 사용하면 1일, 콘솔을 사용하면 7일)
+- DB 스냅샷
+    - 원하는 빈도로 백업한 다음 언제든 해당 상태로 복구할 수 있다.
+    - 사용자가 명시적으로 삭제할 때까지 유지된다.
+
+기본적으로 RDS는 DB 인스턴스를 자동으로 백업하고, 이때 보존 기간은 7일이다.  
+DB 스냅샷과 자동 백업은 S3에 저장된다.  
+
+### 보안
+
+각 DB 인스턴스에 대해 SSL/TLS 인증서를 생성하여 애플리케이션과 DB 인스턴스 간 전송되는 데이터를 암호화할 수 있다.  
+
+RDS DB에 저장된 데이터를 암호화하려면 KMS를 통해 관리하는 키를 사용하여 암호화할 수 있다.  
+
 ### 고가용성 다중 AZ 배포
 
 [Amazon RDS를 위한 고가용성(다중 AZ)](https://docs.aws.amazon.com/ko_kr/AmazonRDS/latest/UserGuide/Concepts.MultiAZ.html)
 
-다중 AZ 배포에서 Amazon RDS는 서로 다른 가용 영역에 동기식 예비 복제본(Synchronous Standby)을 프로비저닝하고 유지한다.  
+다중 AZ 배포에서 Amazon RDS는 서로 다른 가용 영역에 `동기식` 예비 복제본(Synchronous Standby)을 프로비저닝하고 유지한다.  
 다만, 고가용성 기능은 읽기 전용 시나리오의 솔루션과 다르므로, 예비 복제본을 사용하여 읽기 트래픽을 지원할 수는 없다.  
+(장애 상황이 발생하여 예비 복제본이 승격되기 전까지는 어떠한 경우에도 예비 복제본을 사용할 수 없다.)
 
-### Read Replica
+### 읽기 전용 복제본(Read Replica)
 
-Amazon RDS 읽기 전용 복제본은 RDS 인스턴스의 성능과 내구성을 높여준다.  
-읽기 전용 복제본을 사용하면 손쉽게 단일 DB 인스턴스를 탄력적으로 확장하여 읽기 중심의 데이터베이스 워크로드를 처리할 수 있다.  
+Amazon RDS 읽기 전용 복제본은 `비동기식`으로 복제되며, 손쉽게 단일 DB 인스턴스를 탄력적으로 확장하여 읽기 중심의 데이터베이스 워크로드를 처리할 수 있다.  
 필요한 경우 읽기 전용 복제본은 독립 실행형 DB 인스턴스로 승격될 수 있다.  
+
+읽기 전용 복제본을 만들려면 자동 백업을 활성화해야 한다.  
 
 - 다중 AZ 배포
     - 고가용성이 주요 목적
@@ -676,6 +766,16 @@ Amazon RDS 읽기 전용 복제본은 RDS 인스턴스의 성능과 내구성을
     - 확장성이 주요 목적
     - 비동기식 복제
 
+### Enhanced Monitoring
+
+이 옵션을 활성화하고 시간 단위를 설정하면, 정해진 시간 단위에 따라 주요 지표를 수집하고 정보를 처리할 수 있다.  
+
+CPU, 메모리, 파일 시스템, 디스크 I/O 등의 인스턴스 지표를 수집한다.  
+해당 정보를 CloudWatch Logs로 전송하고 CloudWatch에서 CloudWatch Logs의 지표 필터를 생성하여 그래프를 표시할 수 있다.  
+
+CloudWatch는 하이퍼바이저에서 CPU 사용률에 대한 측정치를 수집하는데 반해, 확장 모니터링은 인스턴스 레벨에서 여러 프로세스, 스레드의 CPU 사용률을 수집한다.  
+IAM 역할을 생성한 다음 활성화시켜야 한다.  
+
 ---
 
 ## Amazon Aurora
@@ -683,6 +783,41 @@ Amazon RDS 읽기 전용 복제본은 RDS 인스턴스의 성능과 내구성을
 [Amazon Aurora이란 무엇인가요?](https://docs.aws.amazon.com/ko_kr/AmazonRDS/latest/AuroraUserGuide/CHAP_AuroraOverview.html)
 
 MySQL 및 PostgreSQL과 호환되는 완전 관리형 관계형 데이터베이스 엔진.  
+
+### 고가용성 및 복제
+
+Aurora는 데이터베이스 볼륨을 10GB 세그먼트로 자동으로 분리하여 여러 디스크에 분산한다.  
+각 10GB 청크가 3개의 가용 영역에 6가지 방법으로 복제된다.  
+
+![https://s3-us-west-2.amazonaws.com/secure.notion-static.com/b805811f-626c-4006-8776-ba2476ead375/Untitled.png](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/b805811f-626c-4006-8776-ba2476ead375/Untitled.png)
+
+`Aurora 글로벌 데이터베이스`라고 부르는 물리적 복제에서는 전용 인프라를 사용하며, 1초 미만의 지연 시간으로 최대 5개의 보조 리전에 교체 리전 복제를 구성할 수 있다.  
+
+### 장애
+
+- Amazon Aurora 복제본이 동일한 가용 영역 또는 다른 가용 영역에 있는 경우 장애 조치가 진행될 때 Aurora는 DB 인스턴스의 CNAME(정식 이름 레코드)이 정상적인 복제본을 가리키도록 이를 변경하며, 해당 복제본은 승격되어 새로운 기본 복제본이 된다.
+- Aurora Serverless 및 DB 인스턴스를 실행하거나 AZ를 사용할 수 없으면 Aurora는 다른 AZ에서 DB 인스턴스를 자동으로 다시 생성한다.
+- Amazon Aurora 복제본(즉, 단일 인스턴스)이 없고 Aurora Serverless를 실행하지 않는 경우 Aurora는 원래 인스턴스와 동일한 가용 영역에 새 DB 인스턴스를 생성하려고 시도한다.
+
+### 보안
+
+Aurora는 SSL(AES-256)을 사용하여 인스턴스와 애플리케이션 간 연결을 보호한다.  
+KMS를 통해 관리하는 키를 사용해 데이터베이스를 암호화할 수 있다.  
+
+암호화되지 않는 기존 데이터베이스는 암호화할 수 없기 때문에 암호화를 활성화한 새로운 DB 인스턴스를 생성하고, 데이터를 마이그레이션해야 한다.  
+
+### Amazon Aurora Serverless
+
+온디맨드 Auto Scaling 구성.  
+Aurora Serverless DB 클러스터는 요구 사항에 따라 용량을 자동으로 시작, 종료, 확장, 축소한다.  
+Aurora Serverless는 사용 빈도가 낮거나 간헐적이거나 예측할 수 없는 워크로드에 대해 간단한 옵션을 제공한다.  
+
+- 자주 사용하지 않는 애플리케이션
+- 신규 애플리케이션 (필요한 인스턴스 크기를 잘 모를 때)
+- 가변성 높은 워크로드
+- 예측 불가능한 워크로드
+- 개발 및 테스트 데이터베이스 (사용하는 시간대가 정해진 경우)
+- 다중 테넌트 애플리케이션
 
 ### instance cluster + endpoint
 
@@ -795,6 +930,65 @@ AWS 리소스들을 모델링하고 설정하여 해당 리소스의 프로비�
 
 CloudFormation에 대한 사용 요금은 없고, 대신 이를 통해 생성한 AWS 리소스에 대해서만 사용한 만큼 가격을 지불하면 된다.  
 
+### Template
+
+- 포맷 버전
+    - CloudFormation 템플릿 버전
+- Description
+    - 템플릿의 설명
+- Metadata
+    - 템플릿에 대한 추가 정보
+- Parameters
+    - 스택을 생성하거나 업데이트할 때, 실행 시간에 템플릿에 전달하는 값.
+    - Resources, Outputs 섹션에서 참조할 수 있다.
+- Mappings
+    - 조건부 파라미터 값을 지정하는 데 사용할 수 있는 key-value 형태로 조회 테이블과 비슷
+- Conditions
+    - 특정 리소스 속성에 값이 할당되는지 또는 특정 리소스가 생성되는지 여부를 제어하는 조건
+    - 예를 들어 스택이 프로덕션용인지 테스트 환경용인지에 따라 달라지는 조건부
+- Transform
+    - 템플릿을 처리하는 데 사용되는 하나 이상의 매크로를 지정
+- Resources (필수)
+    - 스택 리소스 및 해당 속성을 지정
+- Outputs
+    - 스택의 속성을 볼 때마다 반환되는 값
+
+---
+
+## Amazon ElastiCache
+
+[Amazon Elasticache FAQ - Amazon Web Services](https://aws.amazon.com/ko/elasticache/faqs/)
+
+ElastiCache는 Memcached나 Redis 프로토콜과 호환되는 서버 노드를 쉽게 배포 및 실행할 수 있도록 해주는 웹 서비스.  
+디스크 기반 데이터베이스의 의존에서 벗어나서, 인 메모리 시스템에서 정보를 검색할 수 있도록 한다.  
+
+- 노드
+    - 가장 작은 빌딩 블록으로, 네트워크에 연결된 RAM의 크기가 고정된 청크
+    - 각 노드는 Memcached 또는 Redis 프로토콜 호환 서비스의 인스턴스를 실행하고, 고유한 DNS 이름과 포트를 갖고 있다.
+- 샤드
+    - 클러스터 키 공간의 하위 집합
+    - 기본 노드와 0개 이상의 읽기 전용 복제본을 포함한다.
+- 클러스터
+    - 샤드가 모여 클러스터를 형성한다.
+
+### Memcached
+
+- 가능한 가장 단순한 모델이 필요한 경우
+- 여러 코어 또는 스레드가 있는 큰 노드를 실행해야 하는 경우
+- 시스템의 요구 사항이 증가하고 감소함에 따라 노드를 추가 및 제거하는 확장 및 축소 기능이 필요한 경우
+- 객체를 캐시해야 하는 경우
+
+### Redis
+
+- **Redis용 ElastiCache 버전 6.x(개선됨)**
+    - 역할 기반 액세스 제어를 사용하여 사용자를 인증
+- **Redis용 ElastiCache 버전 5.0.0(개선됨)**
+    - 생산자가 실시간으로 새 항목을 추가하고 소비자가 차단 또는 비 차단 방식으로 메시지를 사용할 수 있도록 지원하는 로그 데이터 구조인 Redis 스트림을 사용할 수 있다.
+- **Redis용 ElastiCache 버전 4.0.10(개선됨)**
+    - 암호화 및 Redis(클러스터 모드 활성화됨) 클러스터에서 샤드의 동적으로 추가 또는 제거를 지원
+- **Redis용 ElastiCache 버전 3.2.10(개선됨)**
+    - Redis(클러스터 모드 활성화됨) 클러스터에서 샤드를 동적으로 추가 또는 제거하는 기능을 지원
+
 ---
 
 # 기타 서비스
@@ -851,6 +1045,13 @@ LightSail의 대상은 AWS의 EC2, EBS, VPC, 그리고 Route53 같은 무수한 
 [AWS | Amazon Simple Workflow Service - 클라우드 워크플로 관리](https://aws.amazon.com/ko/swf/)
 
 병렬 또는 순차 단계가 있는 백그라운드 작업을 구축하고 실행하고 확장할 수 있는 서비스.  
+
+## AWS Step Functions
+
+[AWS Step Functions FAQ | 서버리스 마이크로서비스 오케스트레이션 | Amazon Web Services](https://aws.amazon.com/ko/step-functions/faqs/)
+
+AWS Lambda 및 여러 서비스를 차례로 배열할 수 있게 해주는 서버리스 함수 오케스트레이터.  
+프로세스에 개입할 외부 신호가 필요하거나 결과를 상위 프로세스로 반환하는 하위 프로세스를 시작하려는 경우 SWF를 고려해야 한다.  
 
 ## AWS IoT Core
 
@@ -977,4 +1178,37 @@ AWS 환경 내의 악의적 활동, 무단 동작을 지속적으로 모니터�
 
 [Amazon Inspector - Amazon Web Services(AWS)](https://aws.amazon.com/ko/inspector/)
 
-애플리케이션의 보안 취약성 및 규정 준수 여부를 자동으로 평가하는 서비스.
+애플리케이션의 보안 취약성 및 규정 준수 여부를 자동으로 평가하는 서비스.  
+
+## AWS Config
+
+[AWS Config](https://aws.amazon.com/ko/config/)
+
+AWS 리소스 구성을 측정, 감사 및 평가할 수 있는 서비스.  
+리소스 구성을 지속적으로 모니터링 및 기록하고 원하는 구성을 기준으로 자동으로 평가해준다.  
+
+## AWS Trusted Advisor
+
+[AWS Trusted Advisor](https://aws.amazon.com/ko/premiumsupport/technology/trusted-advisor/)
+
+리소스를 프로비저닝하는 데 도움이 되도록 실시간 지침을 제공하는 온라인 도구.  
+AWS 인프라를 최적화하고 보안과 성능을 향상시키고 전체 비용을 절감하며 서비스 한도를 모니터링.  
+
+## Amazon Neptune
+
+[Amazon Neptune - 클라우드용으로 구축된 빠르고 안정적인 그래프 데이터베이스](https://aws.amazon.com/ko/neptune/)
+
+완전관리형 그래프 데이터베이스 서비스.  
+
+## AWS PrivateLink
+
+[AWS PrivateLink - Amazon Web Services](https://aws.amazon.com/ko/privatelink/?privatelink-blogs.sort-by=item.additionalFields.createdDate&privatelink-blogs.sort-order=desc)
+
+데이터를 인터넷에 노출하지 않고 AWS, 온프레미스에 호스팅된 서비스와 VPC 간에 안전한 비공개 연결을 제공.  
+
+## AWS Glue
+
+[AWS Glue - 관리형 ETL 서비스 - Amazon Web Services](https://aws.amazon.com/ko/glue/?whats-new-cards.sort-by=item.additionalFields.postDateTime&whats-new-cards.sort-order=desc)
+
+분석, 기계 학습 및 애플리케이션 개발을 위해 데이터를 탐색, 준비, 조합할 수 있도록 지원하는 서버리스 데이터 통합 서비스.  
+이벤트 주도 ETL (추출, 변형 및 로드) 파이프라인을 지원한다.
