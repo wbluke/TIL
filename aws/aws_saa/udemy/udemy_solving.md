@@ -529,6 +529,8 @@ Storage Gateway는 대용량 데이터를 적재하는 데에 적합하지 않�
 파일 추가/삭제에 따라 자동으로 용량이 확장/축소된다.  
 강한 일관성과 file locking이 필요한 경우 사용.  
 
+EBS가 단일 AZ에 데이터를 저장하는데 비해, EFS는 다중 AZ에 데이터를 저장하고, 다중 AZ의 EC2에서 동시 연결이 가능하다.  
+
 ---
 
 ## Amazon FSx for Windows File Server
@@ -776,6 +778,12 @@ CPU, 메모리, 파일 시스템, 디스크 I/O 등의 인스턴스 지표를 �
 CloudWatch는 하이퍼바이저에서 CPU 사용률에 대한 측정치를 수집하는데 반해, 확장 모니터링은 인스턴스 레벨에서 여러 프로세스, 스레드의 CPU 사용률을 수집한다.  
 IAM 역할을 생성한 다음 활성화시켜야 한다.  
 
+확장 모니터링 프로세스 목록에 표기되는 지표는 다음과 같다.  
+
+- RDS child processes
+- RDS processes
+- OS processes
+
 ---
 
 ## Amazon Aurora
@@ -997,8 +1005,10 @@ ElastiCache는 Memcached나 Redis 프로토콜과 호환되는 서버 노드를 
 
 [데이터 웨어하우스 | Redshift | Amazon Web Services](https://aws.amazon.com/ko/redshift/?whats-new-cards.sort-by=item.additionalFields.postDateTime&whats-new-cards.sort-order=desc)
 
-클라우드 데이터 웨어하우스. OLAP 환경에서 사용한다.  
+완전 관리형 클라우드 데이터 웨어하우스. OLAP 환경에서 사용한다.  
 열 기반 스토리지(columnar storage)도 지원한다.  
+
+리전 장애를 대비하기 위해 교차 리전 스냅샷 설정을 할 수 있다.  
 
 ## AWS Fargate
 
@@ -1045,6 +1055,7 @@ LightSail의 대상은 AWS의 EC2, EBS, VPC, 그리고 Route53 같은 무수한 
 [AWS | Amazon Simple Workflow Service - 클라우드 워크플로 관리](https://aws.amazon.com/ko/swf/)
 
 병렬 또는 순차 단계가 있는 백그라운드 작업을 구축하고 실행하고 확장할 수 있는 서비스.  
+각 task의 중복 방지를 보장한다.  
 
 ## AWS Step Functions
 
