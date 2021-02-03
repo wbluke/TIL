@@ -197,6 +197,13 @@ Amazon 관리 키 또는 AWS KMS를 사용하여 생성된 키로 데이터를 �
 
 SSE(Server Side Encryption)는 S3의 옵션이지 EBS의 옵션은 아니다.  
 
+### 스냅샷
+
+- 루트 디바이스 역할을 하는 EBS 볼륨의 스냅샷을 생성할 때는 인스턴스를 중지한 후 스냅샷을 생성해야 합니다.
+- 최대 절전 모드가 활성화된 인스턴스에서는 스냅샷을 생성할 수 없습니다.
+- 최대 절전 모드 인스턴스에서는 스냅샷을 생성할 수 없습니다.
+- 볼륨의 이전 스냅샷이 `pending` 상태일 때에도 볼륨의 스냅샷을 생성할 수는 있지만 볼륨의 `pending` 스냅샷을 여러 개 생성하면 스냅샷이 완료될 때까지 볼륨 성능이 저하될 수 있습니다.
+
 ---
 
 ## VPC (Virtual Private Cloud)
@@ -396,6 +403,23 @@ S3에는 Lifecycle Configuration이 있다.
 - Transition Actions : 특정 시간이 지나면 하나의 스토리지에 있는 객체를 다른 스토리지로 옮기도록 설정할 수 있다.
     - Standard-IA에 있던 데이터를 30일이 지나면 훨씬 저렴한 Glacier로 옮기도록 설정할 수 있다.
 - Expiration Actions : 특정 시간이 지나면 객체를 삭제하도록 설정할 수 있다.
+
+S3 Standard-IA와 S3 Standard One-Zone-IA로 전환하는 수명주기 규칙은 최소 S3 Standard 클래스에 30일 이상 보관한 객체만 가능하다.  
+
+### S3 Intelligent-Tiering
+
+액세스가 빈번할지, 간헐적일지 모르겠을 때 사용한다.  
+
+S3 Intelligent-Tiering에 업로드하거나 이전한 객체는 Frequent Access 계층에 자동으로 저장됩니다.  
+S3 Intelligent-Tiering은 액세스 패턴을 모니터링한 후 30일 연속 액세스되지 않은 객체를, Infrequent Access 계층으로 이동하는 방식으로 작동합니다.  
+이 두 아카이브 액세스 계층을 하나 또는 모두 활성화하면 S3 Intelligent-Tiering이 90일 연속으로 액세스되지 않은 객체를 자동으로 Archive Access 계층으로 옮기고, 이후 180일 연속으로 액세스되지 않으면 다시 Deep Archive Access 계층으로 옮깁니다.  
+이후에 객체에 액세스하면 S3 Intelligent-Tiering은 객체를 Frequent Access 티어로 다시 이동합니다.  
+
+- 변화하는 액세스 패턴으로 데이터의 스토리지 비용 자동 최적화
+- Frequent, Infrequent, Archive 및 Deep Archive 액세스에 최적화된 4개의 액세스 티어에 객체 저장
+- Frequent 및 Infrequent Access 티어는 S3 Standard와 동일한 짧은 지연 시간과 높은 처리 성능 제공
+- 드물게 액세스되는 객체에 대해서는 선택적인 자동 아카이브 기능 활성화
+- Archive Access 및 Deep Archive Access 티어는 Glacier 및 Glacier Deep Archive와 동일한 성능 제공
 
 ### S3 스탠다드-Infrequent Access(S3 스탠다드-IA)
 
@@ -631,6 +655,17 @@ Node.js/Python 코드를 AWS Lambda에 업로드하고 Amazon CloudFront 요청�
 
 - 실시간 애플리케이션 및 시스템 모니터링
 - 로그 장기 보존
+
+---
+
+## AWS CloudTrail
+
+[AWS CloudTrail이란 무엇입니까?](https://docs.aws.amazon.com/ko_kr/awscloudtrail/latest/userguide/cloudtrail-user-guide.html)
+
+감사를 위한 로그, 이벤트 기록 서비스.  
+
+기본 세팅으로 로그 파일은 S3에 SSE-S3 암호화로 암호화되어 저장된다.  
+추가적으로 SSE-KMS 를 사용할지를 정할 수 있다.  
 
 ---
 
@@ -1222,4 +1257,4 @@ AWS 인프라를 최적화하고 보안과 성능을 향상시키고 전체 비�
 [AWS Glue - 관리형 ETL 서비스 - Amazon Web Services](https://aws.amazon.com/ko/glue/?whats-new-cards.sort-by=item.additionalFields.postDateTime&whats-new-cards.sort-order=desc)
 
 분석, 기계 학습 및 애플리케이션 개발을 위해 데이터를 탐색, 준비, 조합할 수 있도록 지원하는 서버리스 데이터 통합 서비스.  
-이벤트 주도 ETL (추출, 변형 및 로드) 파이프라인을 지원한다.
+이벤트 주도 ETL (추출, 변형 및 로드) 파이프라인을 지원한다.  
