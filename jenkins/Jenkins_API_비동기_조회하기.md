@@ -1,3 +1,7 @@
+# 제모옥은 젠킨스 조회 로직 개선으로 하겠습니다. 근데 이제 비동기를 곁들인
+
+> 제목의 밈은 [조림요정의 휴먼강록체](https://www.youtube.com/watch?v=IuBfmQs9wcA#t=65)입니다.
+
 ## Intro
 
 평화로운 2020년 9월의 어느 날...  
@@ -116,8 +120,6 @@ Spring Batch Metadata Tables와 위 요구사항을 매칭해보니, 다음과 �
 
 ```json
 {
-  ...
-
   "description": "",
   "displayName": "test-01",
   "fullDisplayName": "test-01",
@@ -181,13 +183,7 @@ Spring Batch Metadata Tables와 위 요구사항을 매칭해보니, 다음과 �
     "number": 2,
     "url": "http://JENKINS_URL/job/test-01/2/"
   },
-  "nextBuildNumber": 4,
-  "downstreamProjects": [
-    
-  ],
-  "upstreamProjects": [
-    
-  ]
+  "nextBuildNumber": 4
 }
 ```
 
@@ -198,7 +194,7 @@ Job API에서 눈여겨 볼 정보들은 다음과 같습니다.
 - buildable
     - 활성화 여부 (`빌드 안함` 체크 여부)
 - lastBuild, lastCompletedBuild, lastFailedBuild
-    - 최신 빌드 url, 최신 성공 빌드 url, 최신 실패 빌드 url
+    - 최신 빌드 URL, 최신 성공 빌드 URL, 최신 실패 빌드 URL
 
 두 번째로는 Build에 대한 정보를 받아오는 API 입니다.  
 
@@ -218,7 +214,7 @@ Job API에서 눈여겨 볼 정보들은 다음과 같습니다.
   "number": 3,
   "result": "SUCCESS",
   "timestamp": 1616924008157,
-  "url": "http://JENKINS_URL/job/test-01/3/",
+  "url": "http://JENKINS_URL/job/test-01/3/"
 }
 ```
 
@@ -234,19 +230,259 @@ Build API에서 눈여겨 볼 정보는 다음과 같습니다.
     - 수행 시작 시간
     - timestamp에 duration을 더해서 환산하면 수행 종료 시간이 됩니다.
 
-위 두 API에서 가장 중요한 포인트는, 하나의 API만 가지고는 우리가 필요한 모든 정보를 얻을 수 없다는 것입니다.  
+(위 2개 API를 제외한 다른 API가 궁금하시면 Jenkins API wrapping 라이브러리인 [Jenkins-rest](https://github.com/cdancy/jenkins-rest)를 참고해보셔도 좋습니다!)  
 
-즉, Job API에서는 Build에 대한 상세 정보를 알려주지 않고, Build API에서는 Job에 대한 상세 정보(활성화 여부 등)를 알려주지 않습니다.  
+마찬가지로 Jenkins API와 위 요구사항을 매칭해보니, 다음과 같은 문제점들이 보였습니다.  
+
+- Trigger Job은 다른 배치를 Trigger만 하고 종료되기 때문에, 정확한 수행시간 등을 모니터링할 수 없다.
+- 하나의 배치 당 2번의 API 조회가 필요하다.
+
+Jenkins API를 사용하는 방법에서 가장 큰 문제는, 하나의 API만 가지고는 우리가 필요한 모든 정보를 얻을 수 없다는 것입니다.  
+
+즉, Job API에서는 어디로 가야 Build 정보가 있는지 Build 번호와 URL만 던져줄 뿐이고, 그렇게 찾아간 Build API에서는 반대로 Job에 대한 상세 정보(활성화 여부 등)를 확인할 수 없습니다.  
+
+이렇게 되면 하나의 배치 당 Job API 한번, Build API 한번, 총 2번 API를 찔러야 하고, 결국 모니터링하려는 수십 개의 배치의 2배 만큼 API 호출을 해야하는 상황이었습니다.  
+
+아니 집사님... 친절하게 한번에 다 알려주시면 안됩니까...  
 
 [사진]  
 
-(위 2개 API를 제외한 다른 API가 궁금하시면 Jenkins API wrapping 라이브러리인 [Jenkins-rest](https://github.com/cdancy/jenkins-rest)를 참고해보셔도 좋습니다!)  
+Spring Batch Metadata Tables와 Jenkins API 중 고민하다가, 어차피 활성화 여부는 API를 통해 얻어와야 하고, 정보를 조합하기에도 API 쪽이 더 낫다고 생각해 후자를 선택하게 되었습니다.  
+
+장단점에 따라 두 방법을 섞어서 쓰기에는 개발 기간이나 복잡도 측면에서 적합하지 않다고 판단하였습니다.  
+
+집사가 일을 대충하면 목마른 주인이 우물을 파야죠. 연장 가져오겠습니다. ⛏  
 
 ### 해보자, 조회!
 
+전체적인 배치 모니터링플로우는 다음과 같습니다.  
+
+1. 운영자가 모니터링하고 싶은 배치를 어드민에 Job 이름/관리용 이름/작업주기/조회유무 정보와 함께 등록한다.
+2. 등록할 때 Job 이름(batchId)을 기준으로 Jenkins API를 찔러서, 실제 운영되고 있는 배치인지 확인한다.
+3. 배치가 존재한다면, monitoring_batch라는 별도의 모니터링용 배치 관리 테이블에 저장한다.
+4. 조회 시에는 등록한 batchId와 작업주기를 기준으로 당일 조회 대상인 배치 리스트를 가져와 일괄 조회한다.
+
+먼저, 필요한 API 정보에 맞게 JobInfo와 BuildInfo를 정의했습니다.  
+
+```java
+@ToString
+@Getter
+@NoArgsConstructor
+public class JobInfo {
+
+    private String description;
+    private String displayName;
+    private String name;
+    private boolean buildable;
+    private String url;
+
+    private List<BuildUrl> builds;
+
+    private BuildUrl firstBuild;
+    private BuildUrl lastBuild;
+    private BuildUrl lastCompletedBuild;
+    private BuildUrl lastFailedBuild;
+    private BuildUrl lastStableBuild;
+    private BuildUrl lastSuccessfulBuild;
+    private BuildUrl lastUnstableBuild;
+    private BuildUrl lastUnsuccessfulBuild;
+
+    public boolean isLastBuildEmpty() {
+        return lastBuild == null;
+    }
+
+    public Long getLastBuildNumber() {
+        return isLastBuildEmpty() ? null : lastBuild.getNumber();
+    }
+
+}
+
+@ToString
+@Getter
+@NoArgsConstructor
+public class BuildUrl {
+
+    private String url;
+    private long number;
+
+}
+```
+
+Build 조회 API URL에 Job 이름이 포함되어 있기 때문에 너무 당연해서 그런지 API에서 Job의 이름을 제공하고 있지 않아서, BuildInfo에서는 추후 활용도를 높이기 위해 조회 후 이미 가지고 있는 Job 이름 정보를 업데이트하기로 했습니다.  
+
+```java
+@ToString
+@Getter
+@NoArgsConstructor
+public class BuildInfo {
+
+    private String batchId; // 해당 빌드의 Job Name. API에서 제공하고 있지 않아 수동으로 update 한다.
+
+    private String id;
+    private long number;
+    private String url;
+
+    private boolean building;
+    private String description;
+    private String displayName;
+    private String result;
+
+    private long timestamp;
+    private long duration;
+
+    public void updateBatchId(String batchId) {
+        this.batchId = batchId;
+    }
+
+    public LocalDateTime getBuildStartTime() {
+        return new Timestamp(timestamp).toLocalDateTime();
+    }
+
+    public LocalDateTime getBuildEndTime() {
+        return new Timestamp(timestamp + duration).toLocalDateTime();
+    }
+
+}
+```
+
+정산시스템에서는 이미 Jenkins API를 통해 특정 배치를 단건 실행하는 JenkinsConnector라는 모듈이 있었기 때문에, 해당 모듈에 조회 로직을 추가하기로 했습니다.  
+
+RestTemplate을 사용해서 Job의 존재 유무를 확인하는 메서드와 JobInfo, BuildInfo를 조회하는 메서드를 각각 작성했습니다.  
+
+> 젠킨스 API를 사용하기 위해서는 젠킨스 환경설정에서 사용자별 토큰을 발급하고, Request에 `사용자ID:토큰` 의 형태로 인증 헤더를 보내면 됩니다.
+
+```java
+// JenkinsConnector.java
+
+public boolean existsJob(String batchId) {
+    try {
+        String requestUrl = createJobUrl(batchId); // Job 조회 API URL
+
+        ResponseEntity<JobInfo> responseEntity = createRestTemplate()
+                .exchange(requestUrl, GET, new HttpEntity<>("", createAuthHeaders()), JobInfo.class);
+
+        HttpStatus statusCode = responseEntity.getStatusCode();
+        return statusCode.is2xxSuccessful();
+    } catch (Exception e) {
+        log.error(e.getMessage(), e);
+        return false;
+    }
+}
+
+public JobInfo getJobInfo(String batchId) {
+    try {
+        log.info("address: {}, batchId: {}", address, batchId);
+        String requestUrl = createJobUrl(batchId); // Job 조회 API URL
+
+        return createRestTemplate()
+                .exchange(requestUrl, GET, new HttpEntity<>("", createAuthHeaders()), JobInfo.class)
+                .getBody();
+    } catch (Exception e) {
+        throw new JenkinsExecuteException("Job Info Fetching Exception! ", e);
+    }
+}
+
+public BuildInfo getBuildInfo(String batchId, long buildNumber) {
+    try {
+        log.info("address: {}, batchId: {}, buildNumber: {}", address, batchId, buildNumber);
+        String requestUrl = createBuildUrl(batchId, buildNumber); // Build 조회 API URL
+
+        BuildInfo buildInfo = createRestTemplate()
+                .exchange(requestUrl, GET, new HttpEntity<>("", createAuthHeaders()), BuildInfo.class)
+                .getBody();
+        if (buildInfo != null) {
+            buildInfo.updateBatchId(batchId);
+        }
+
+        return buildInfo;
+    } catch (Exception e) {
+        throw new JenkinsExecuteException("Build Info Fetching Exception! ", e);
+    }
+}
+
+private HttpHeaders createAuthHeaders() {
+    String credentials = username + ":" + token;
+    String base64Credentials = Base64.getEncoder().encodeToString(credentials.getBytes());
+    HttpHeaders httpHeaders = new HttpHeaders() {
+    };
+    httpHeaders.set("Authorization", "Basic " + base64Credentials);
+    return httpHeaders;
+}
+```
+
+그리고 서비스 로직에서 이 JenkinsConnector를 사용하여 배치 하나 당 Job 조회, Build 조회를 순차적으로 진행하도록 했습니다.  
+
+```java
+// MonitoringBatchService.java
+
+public List<MonitoringBatchResponse> search(MonitoringBatchSearchRequest request) {
+    LocalDate workingDate = request.getWorkingDate();
+    List<MonitoringBatchResponse> monitoringBatchResponses = monitoringBatchServerRepository.searchByCondition(request);
+ 
+    for (MonitoringBatchResponse monitoringBatchResponse : monitoringBatchResponses) {
+        updateBuildInfo(monitoringBatchResponse, workingDate); // DB에서 조회한 배치 리스트를 반복문을 돌면서 하나씩 Job, Build 조회
+    }
+    
+    // ...
+}
+ 
+private void updateBuildInfo(MonitoringBatchResponse monitoringBatchResponse, LocalDate workingDate) {
+    String batchId = monitoringBatchResponse.getBatchId();
+ 
+    try {
+        JobInfo jobInfo = jenkinsConnector.getJobInfo(batchId); // Job 조회
+        // ...
+ 
+        BuildUrl lastBuild = jobInfo.getLastBuild(); // 최신 Build 번호 확인
+        if (lastBuild != null) {
+            BuildInfo buildInfo = jenkinsConnector.getBuildInfo(batchId, lastBuild.getNumber()); // Build 조회
+             
+            // ... 상태 업데이트
+        }
+    } catch (JenkinsExecuteException e) {
+        log.error("Jenkins 에서 조회할 수 없는 배치 Job 입니다. batchId={}", batchId);
+    }
+}
+```
+
+음, 아주 조회가 잘 되는 것을 확인했습니다. 배포!  
+
 ## 비동기로 로직 개선
+
+[사진]  
+
+네, 지금까지 과거 회상 씬이었고요.  
+
+이제 서문에서의 상황으로 돌아가서 이 무지막지한 API 호출을 손볼 차례입니다.  
+
+사실 배치 모니터링은 대시보드의 여러가지 지표 중 지분이 작고 활용도가 적은 부분이라 뒤늦게 인지한 측면도 있었고, 개선 우선순위가 낮기도 했었습니다. ~~핑계~~  
+
+확인한 당시에는 등록한 배치 수도 50여 개 가까이 되면서 1회 진입 시 호출하는 API 횟수가 100회에 가까웠습니다.  
+
+API 호출 100회를 동기식으로 조회하니 속도가 안나오는건 당연할수밖에요.  
+
+그래서 비동기 방식으로 슥삭 개선해보기로 했습니다.  
+
+먼저 기존에 어드민 시스템에서 비동기 작업을 담당하고 있던 스레드 풀(Executor)의 설정을 변경했습니다.  
+
+```java
+// AsyncConfig.java
+ 
+public static final String ADMIN_DEFAULT_EXECUTOR_NAME = "threadPoolTaskExecutor";
+private static final int POOL_SIZE = 30;
+ 
+@Bean(name = ADMIN_DEFAULT_EXECUTOR_NAME)
+public Executor threadPoolTaskExecutor() {
+    ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+    executor.setCorePoolSize(POOL_SIZE);
+    executor.setMaxPoolSize(POOL_SIZE);
+    executor.setThreadNamePrefix("admin-default-async-");
+     
+    // ...
+    return executor;
+}
+```
 
 ## 1차 배포 후
 
 ## 2차 배포 후
-
