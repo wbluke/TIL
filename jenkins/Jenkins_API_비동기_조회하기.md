@@ -1,5 +1,3 @@
-# 제모옥은 젠킨스 조회 로직 개선으로 하겠습니다. 근데 이제 비동기를 곁들인
-
 > 제목의 밈은 [조림요정의 휴먼강록체](https://www.youtube.com/watch?v=IuBfmQs9wcA#t=65)입니다.
 
 ## Intro
@@ -34,7 +32,9 @@
 
 ### 배치 모니터링
 
-요구사항에 있는 많은 지표들 중 하나는, 정산시스템의 허리를 담당하고 있는 수십 개의 배치를 개발자가 아닌 운영자 분이 모니터링할 수 있도록 하는 `배치 모니터링` 지표였습니다. 
+[사진]  
+
+요구사항에 있는 많은 지표들 중 하나는, 정산시스템의 허리를 담당하고 있는 수십 개의 배치를 개발자가 아닌 운영자 분이 모니터링할 수 있도록 하는 `배치 모니터링` 지표였습니다.  
 
 > 아래에 이어서 나오는 배치 모니터링 분석에 대한 내용은 당시에 [태현님](https://woowabros.github.io/experience/2020/10/08/excel-download.html)이 많은 도움을 주셨습니다 🙏
 
@@ -98,7 +98,10 @@ Spring Batch를 사용하시는 분들은 대부분 아시겠지만, 한번 간�
 
 Spring Batch Metadata Tables와 위 요구사항을 매칭해보니, 다음과 같은 문제점들이 보였습니다.  
 
-- 파이프라인 Job의 수행 시작시간/종료시간을 구하는 경우, 파이프라인 하위 배치들의 순서 및 첫 수행 배치와 마지막 수행 배치 시간을 알아와야 하는데, 필요 이상의 테이블 조인 및 조회가 발생하고, 추가적인 관리 포인트가 생길 수 있다.
+- 파이프라인 Job은 메타테이블이 직접적으로 관리하고 있지 않기 때문에 추가 작업이 필요하다.
+    - 파이프라인 하위 배치들의 순서를 알아야 하고, 순서가 달라지면 코드 변경 및 배포가 필요하다.
+    - 첫 수행 배치 Job과 마지막 수행 배치 Job의 시간을 조회해야 한다.
+    - 여러 테이블의 조인이 필요하다.
 - Jenkins Job의 활성화 여부는 Jenkins API로만 얻어올 수 있다.
     - (아래 캡쳐 참조) 배치 활성화 on/off 는 `빌드 안함` 체크로 관리하고 있다.
 
@@ -124,9 +127,9 @@ Spring Batch Metadata Tables와 위 요구사항을 매칭해보니, 다음과 �
   "displayName": "test-01",
   "fullDisplayName": "test-01",
   "fullName": "test-01",
-  "name": "test-01",
+  "name": "test-01", // (1)
   "url": "http://JENKINS_URL/job/test-01/",
-  "buildable": true,
+  "buildable": true,  // (2)
   "builds": [
     {
       "_class": "hudson.model.FreeStyleBuild",
@@ -152,7 +155,7 @@ Spring Batch Metadata Tables와 위 요구사항을 매칭해보니, 다음과 �
   },
   "inQueue": false,
   "keepDependencies": false,
-  "lastBuild": {
+  "lastBuild": { // (3)
     "_class": "hudson.model.FreeStyleBuild",
     "number": 3,
     "url": "http://JENKINS_URL/job/test-01/3/"
@@ -189,11 +192,11 @@ Spring Batch Metadata Tables와 위 요구사항을 매칭해보니, 다음과 �
 
 Job API에서 눈여겨 볼 정보들은 다음과 같습니다.  
 
-- name
+- (1) name
     - Job 이름
-- buildable
+- (2) buildable
     - 활성화 여부 (`빌드 안함` 체크 여부)
-- lastBuild, lastCompletedBuild, lastFailedBuild
+- (3) lastBuild, lastCompletedBuild, lastFailedBuild
     - 최신 빌드 URL, 최신 성공 빌드 URL, 최신 실패 빌드 URL
 
 두 번째로는 Build에 대한 정보를 받아오는 API 입니다.  
@@ -204,29 +207,29 @@ Job API에서 눈여겨 볼 정보들은 다음과 같습니다.
 
 ```json
 {
-  "building": false,
+  "building": false, // (1)
   "displayName": "#3",
-  "duration": 34,
+  "duration": 34, // (2)
   "estimatedDuration": 116,
   "fullDisplayName": "test-01 #3",
   "id": "3",
   "keepLog": false,
   "number": 3,
-  "result": "SUCCESS",
-  "timestamp": 1616924008157,
+  "result": "SUCCESS", // (3)
+  "timestamp": 1616924008157, // (4)
   "url": "http://JENKINS_URL/job/test-01/3/"
 }
 ```
 
 Build API에서 눈여겨 볼 정보는 다음과 같습니다.  
 
-- building
+- (1) building
     - 현재 수행중인지 여부
-- duration
+- (2) duration
     - 수행된 시간
-- result
+- (3) result
     - 빌드 결과
-- timestamp
+- (4) timestamp
     - 수행 시작 시간
     - timestamp에 duration을 더해서 환산하면 수행 종료 시간이 됩니다.
 
@@ -403,8 +406,8 @@ public BuildInfo getBuildInfo(String batchId, long buildNumber) {
 private HttpHeaders createAuthHeaders() {
     String credentials = username + ":" + token;
     String base64Credentials = Base64.getEncoder().encodeToString(credentials.getBytes());
-    HttpHeaders httpHeaders = new HttpHeaders() {
-    };
+
+    HttpHeaders httpHeaders = new HttpHeaders();
     httpHeaders.set("Authorization", "Basic " + base64Credentials);
     return httpHeaders;
 }
@@ -445,7 +448,7 @@ private void updateBuildInfo(MonitoringBatchResponse monitoringBatchResponse, Lo
 }
 ```
 
-음, 아주 조회가 잘 되는 것을 확인했습니다. 배포!  
+음, 아주 조회가 잘 되는 것을 확인했습니다. 배포! 👏  
 
 ## 비동기로 로직 개선
 
@@ -463,7 +466,22 @@ API 호출 100회를 동기식으로 조회하니 속도가 안나오는건 당�
 
 그래서 비동기 방식으로 슥삭 개선해보기로 했습니다.  
 
-먼저 기존에 어드민 시스템에서 비동기 작업을 담당하고 있던 스레드 풀(Executor)의 설정을 변경했습니다.  
+비동기 요청을 처리하기 위해 Java8에 등장한 CompletableFuture를 사용하기로 했고, 그전까지 CompletableFuture를 제대로 써본 적이 없었기에 진행에 앞서 [개인 블로그](https://wbluke.tistory.com/50)에 정리도 해보았는데요.  
+
+아래 나올 CompletableFuture의 API를 몇 개만 간단히 정리해보면 다음과 같습니다.  
+
+- supplyAsync
+    - Supplier 타입을 파라미터 콜백으로 받아서 비동기 요청을 수행하고 반환값을 리턴하는 메서드입니다.
+- join
+    - 위 supplyAsync는 콜백의 반환값을 CompletableFuture가 감싼 형태로 리턴을 하는데요. 받은 CompletableFuture가 끝나기를 기다리고 싶다면 join()으로 Blocking을 걸어서 비동기 작업이 끝나기를 기다릴 수 있습니다.
+- handleAsync
+    - 비동기 작업이 끝난 이후, 해당 결과물과 (혹시나 실패했다면) 예외를 파라미터로 받아 종합적으로 후속 작업을 지정할 수 있는 메서드입니다.
+- allOf
+    - 여러 CompletableFuture를 한번에 Blocking 할 때 사용하는 메서드입니다.
+
+CompletableFuture까지 훑어봤으니, 이제 동기 로직을 비동기 로직으로 전환해보도록 하겠습니다!  
+
+먼저 기존 어드민 시스템에서 비동기 작업을 담당하고 있던 스레드 풀(Executor)의 설정을 변경했습니다.  
 
 ```java
 // AsyncConfig.java
@@ -510,7 +528,7 @@ public List<BatchJobItem> fetch(List<String> batchIds) {
             .map(this::fetchBatchJobItemFuture)
             .collect(Collectors.toList());
  
-    return CompletableFuture.allOf(batchJobItemFutures.toArray(new CompletableFuture[0])) // (5) 전체 Blocking
+    return CompletableFuture.allOf(batchJobItemFutures.toArray(new CompletableFuture[0])) // (1) 전체 Blocking
             .thenApply(Void -> batchJobItemFutures.stream()
                     .map(CompletableFuture::join)
                     .filter(Objects::nonNull)
@@ -520,8 +538,8 @@ public List<BatchJobItem> fetch(List<String> batchIds) {
  
 // 하나의 스레드에서 JobInfo 조회가 끝나면, 다른 스레드가 BuildInfo 조회 작업을 진행할 수 있도록 handleAsync()를 사용
 private CompletableFuture<BatchJobItem> fetchBatchJobItemFuture(String batchId) {
-    return getJobInfoAsync(batchId) // (1) 비동기로 Job 조회
-            .handleAsync((jobInfo, jobInfoException) -> { // (2) Job 조회 후 Build 조회
+    return getJobInfoAsync(batchId) // (2) 비동기로 Job 조회
+            .handleAsync((jobInfo, jobInfoException) -> { // (3) Job 조회 후 Build 조회
                 Long lastBuildNumber = jobInfo.getLastBuildNumber();
                 // ... 검증
  
@@ -538,8 +556,8 @@ private CompletableFuture<JobInfo> getJobInfoAsync(String batchId) {
 }
  
 private BatchJobItem fetchBatchJobItem(JobInfo jobInfo, Long lastBuildNumber) {
-    CompletableFuture<BatchJobItem> batchJobItemFuture = getBuildInfoAsync(jobInfo.getName(), lastBuildNumber) // (3) 비동기로 Build 조회
-            .handleAsync((buildInfo, buildInfoException) -> { // (4) Build 조회 후 가공
+    CompletableFuture<BatchJobItem> batchJobItemFuture = getBuildInfoAsync(jobInfo.getName(), lastBuildNumber) // (4) 비동기로 Build 조회
+            .handleAsync((buildInfo, buildInfoException) -> { // (5) Build 조회 후 가공
                 // ... 검증
  
                 return new BatchJobItem(jobInfo, buildInfo);
@@ -565,17 +583,17 @@ private void logErrorWithBatchId(String batchId) { // (6)
 
 코드가 조금 복잡할 수는 있는데요, 크게는 다음과 같은 흐름입니다. (주석 번호 참조)  
 
-- (1) 먼저 조회해야 하는 batchId 리스트를 보고 순차적으로 Job을 조회하는 비동기 요청을 보냅니다.
+- (1) 모든 비동기 요청은 결국 각 요청의 결과값이 모두 다 도착해야 화면 응답을 내려줄 수 있기 때문에, 조회가 끝나고 최종적으로는 CompletableFuture.allOf()로 Blocking을 걸어서 모든 응답이 끝났음을 보장해 줬습니다.
+- (2) 먼저 조회해야 하는 batchId 리스트를 보고 순차적으로 Job을 조회하는 비동기 요청을 보냅니다.
     - Supplier 타입을 파라미터로 받는 CompletableFuture.supplyAsync()를 사용했습니다.
-- (2) Job을 비동기로 조회한 뒤 Build를 조회하는 후속작업을 지정합니다.
-- (3) Job 조회에서 얻은 최신 buildId를 사용해 Build를 조회합니다.
-- (4) (2)에서와 동일하게 Build를 비동기로 조회한 뒤 Job과 Build를 가공하는 후속작업을 지정합니다.
-- (5) 모든 비동기 요청은 결국 각 요청의 결과값이 모두 다 도착해야 화면 응답을 내려줄 수 있기 때문에, CompletableFuture.allOf()로 Blocking을 걸어서 모든 응답이 끝났음을 보장해 줬습니다.
+- (3) Job을 비동기로 조회한 뒤 Build를 조회하는 후속작업을 지정합니다.
+- (4) Job 조회에서 얻은 최신 buildId를 사용해 Build를 조회합니다.
+- (5) (3)에서와 동일하게 Build를 비동기로 조회한 뒤 Job과 Build를 가공하는 후속작업을 지정합니다.
 - (6) 만약 Job이나 Build 조회 시 예외가 발생하면, `log.error` (Slf4j)를 남기고 null을 반환하도록 했습니다.
     - 정산시스템은 log.error가 발생하면 ELK에서 감지 후 슬랙에 에러 알람을 보내도록 되어있습니다.
     - null 반환은 기본적으로 안티 패턴이지만, private 메서드로 내부에서만 사용하기 때문에 에러 시 null을 반환하도록 하고, public 메서드에서 필터링하는 용도로 사용했습니다. 한 건의 조회를 실패하더라도 나머지 정상적인 조회 결과는 보여줘야 하기 때문입니다.
 
-이 로직에서 눈여겨봐야 하는 부분은, **(1) ~ (4)의 과정에서 모두 같은 스레드 풀(threadPoolTaskExecutor)을 사용하도록 했다**는 점입니다.  
+이 로직에서 눈여겨봐야 하는 부분은, **(2) ~ (5)의 과정에서 모두 같은 스레드 풀(threadPoolTaskExecutor)을 사용하도록 했다**는 점입니다.  
 
 이렇게 개선을 마치고, 베타 서버에서 조회 속도의 드라마틱한 향상을 체감한 뒤 운영 배포를 진행했습니다! 👏  
 
@@ -607,18 +625,19 @@ public List<BatchJobItem> fetch(List<String> batchIds) {
             .map(this::fetchBatchJobItemFuture)
             .collect(Collectors.toList());
  
-    return CompletableFuture.allOf(batchJobItemFutures.toArray(new CompletableFuture[0])) // (5) 전체 Blocking
+    return CompletableFuture.allOf(batchJobItemFutures.toArray(new CompletableFuture[0])) // (1) 전체 Blocking
             .thenApply(Void -> batchJobItemFutures.stream()
                     .map(CompletableFuture::join)
                     .filter(Objects::nonNull)
-                    .collect(Collectors.toList()))
+                    .collect(Collectors.toList())
+            )
             .join();
 }
  
 // 하나의 스레드에서 JobInfo 조회가 끝나면, 다른 스레드가 BuildInfo 조회 작업을 진행할 수 있도록 handleAsync()를 사용
 private CompletableFuture<BatchJobItem> fetchBatchJobItemFuture(String batchId) {
-    return getJobInfoAsync(batchId) // (1) 비동기로 Job 조회
-            .handleAsync((jobInfo, jobInfoException) -> { // (2) Job 조회 후 Build 조회
+    return getJobInfoAsync(batchId) // (2) 비동기로 Job 조회
+            .handleAsync((jobInfo, jobInfoException) -> { // (3) Job 조회 후 Build 조회
                 Long lastBuildNumber = jobInfo.getLastBuildNumber();
                 // ... 검증
  
@@ -635,8 +654,8 @@ private CompletableFuture<JobInfo> getJobInfoAsync(String batchId) {
 }
  
 private BatchJobItem fetchBatchJobItem(JobInfo jobInfo, Long lastBuildNumber) {
-    CompletableFuture<BatchJobItem> batchJobItemFuture = getBuildInfoAsync(jobInfo.getName(), lastBuildNumber) // (3) 비동기로 Build 조회
-            .handleAsync((buildInfo, buildInfoException) -> { // (4) Build 조회 후 가공
+    CompletableFuture<BatchJobItem> batchJobItemFuture = getBuildInfoAsync(jobInfo.getName(), lastBuildNumber) // (4) 비동기로 Build 조회
+            .handleAsync((buildInfo, buildInfoException) -> { // (5) Build 조회 후 가공
                 // ... 검증
  
                 return new BatchJobItem(jobInfo, buildInfo);
@@ -662,11 +681,11 @@ private void logErrorWithBatchId(String batchId) { // (6)
 
 예를 들어 조회할 배치 2개, 스레드 풀의 스레드 수를 2개라고 가정해 보겠습니다.  
 
-2개의 스레드가 2개의 배치를 조회 및 가공하는 (1) ~ (2) 번 과정을 수행합니다.
+2개의 스레드가 2개의 배치를 조회 및 가공하는 (2) ~ (3) 번 과정을 수행합니다.
 
-문제는 fetchBatchJobItem() 이라는 (3) ~ (4)의 과정이 (2)의 과정에 포함되는 작업이기 때문에, (2)번 과정에 모든 스레드가 물려있는 상황에서 새로운 (3) ~ (4)번 작업을 위한 스레드를 요청하게 되고, 이는 곧 각자의 스레드가 서로가 끝나기만을 기다리는 데드락 현상으로 이어집니다.  
+문제는 fetchBatchJobItem() 이라는 (4) ~ (5)의 과정이 (3)의 과정에 포함되는 작업이기 때문에, (2)번 과정에 모든 스레드가 물려있는 상황에서 새로운 (4) ~ (5)번 작업을 위한 스레드를 요청하게 되고, 이는 곧 각자의 스레드가 서로가 끝나기만을 기다리는 데드락 현상으로 이어집니다.  
 
-당시 운영에서 조회하고 있던 배치는 47개 정도여서, 해당 이슈는 **핫픽스 배포로 스레드 풀의 개수를 초기 설정 30개에서 50개로 상향 조정하여 임시 조치**하는 방식으로 해소하였습니다.  
+당시 운영에서 등록해 조회하고 있던 배치는 47개 정도여서, 해당 이슈는 **핫픽스 배포로 스레드 풀의 개수를 초기 설정 30개에서 50개로 상향 조정하여 임시 조치**하는 방식으로 해소하였습니다.  
 
 이후 정확한 원인 파악을 진행하고, 두 가지 후속조치를 진행하였는데요.  
 
@@ -674,13 +693,13 @@ private void logErrorWithBatchId(String batchId) { // (6)
 
 후에 대시보드에서 또 다른 스레드 이슈가 발생하더라도 다른 기능들은 영향을 받지 않게끔 하기 위해서입니다.  
 
-두 번째는 **(1), (3)번 과정의 네트워크 조회 로직만 대시보드 전용 스레드 풀을 사용**하게 하고, (2), (4)번 과정의 애플리케이션 단에서의 단순 가공 로직은 스프링에서 기본 제공하는 ForkJoinPool.commonPool을 사용하도록 **스레드 풀 지정을 하지 않았습니다.**  
+두 번째는 **(2), (4)번 과정의 네트워크 조회 로직만 대시보드 전용 스레드 풀을 사용**하게 하고, (3), (5)번 과정의 애플리케이션 단에서의 단순 가공 로직은 기본 제공되는 Tomcat의 NIO 스레드 풀을 자연스럽게 이용할 수 있도록 **특별한 스레드 풀 지정을 하지 않았습니다.**  
+
+(지금 생각해보면 스레드 풀 지정을 하지 않는 것보다, 또 다른 스레드 풀을 두고 별도로 지정하는 것이 더 좋았을 것 같습니다. 톰갯의 스레드 풀은 이미 그 나름대로의 역할이 있기 때문입니다.)  
 
 이렇게 하면 대시보드 스레드 풀의 스레드들이 정확히 네트워크 리소스에만 투입되고, 서로의 작업 간에 pending 되는 일이 없게 됩니다.  
 
-두 가지 후속조치 사항을 반영하여 조회 배치 수 10개, 스레드 풀 사이즈 1개로 로컬에서 테스트한 결과, 속도만 느려질 뿐 데드락 현상은 발생하지 않는 것을 확인하였습니다. ~~진작확인했어야 했는데 말이죠 😭~~  
-
-위에 설명한 후속 조치에 따라 2차 개선한 코드는 다음과 같습니다.  
+위 후속 조치에 따라 2차 개선한 코드는 다음과 같습니다.  
 
 ```java
 // AsyncConfig.java
@@ -695,8 +714,7 @@ public Executor adminExecutor() {
     ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
     executor.setThreadNamePrefix("admin-async-");
  
-    executor.setWaitForTasksToCompleteOnShutdown(true); // graceful shutdown 지원
-    executor.setAwaitTerminationSeconds(30);  // graceful shutdown 지원
+    // ...
     return executor;
 }
  
@@ -708,8 +726,7 @@ public Executor monitoringBatchExecutor() {
     executor.setMaxPoolSize(MONITORING_BATCH_THREAD_POOL_SIZE);
     executor.setThreadNamePrefix("monitoring-async-");
  
-    executor.setWaitForTasksToCompleteOnShutdown(true); // graceful shutdown 지원
-    executor.setAwaitTerminationSeconds(30);  // graceful shutdown 지원
+    // ...
     return executor;
 }
 ```
@@ -723,7 +740,7 @@ AsyncConfig.java에서는 스레드 풀을 2개로 분리하고, 대시보드 �
  
 private CompletableFuture<BatchJobItem> fetchBatchJobItemFuture(String batchId) {
     return getJobInfoAsync(batchId)
-            .handleAsync((jobInfo, jobInfoException) -> { // (2) Job 조회 후 Build 조회
+            .handleAsync((jobInfo, jobInfoException) -> { // (3) Job 조회 후 Build 조회
                 Long lastBuildNumber = jobInfo.getLastBuildNumber();
                 // ... 검증
  
@@ -731,11 +748,17 @@ private CompletableFuture<BatchJobItem> fetchBatchJobItemFuture(String batchId) 
             }); // 별도의 스레드 풀 지정하지 않음
 }
  
-// ...
+private CompletableFuture<JobInfo> getJobInfoAsync(String batchId) {
+    return CompletableFuture.supplyAsync(() -> jenkinsConnector.getJobInfo(batchId), threadPoolTaskExecutor) // 기존처럼 스레드 풀 지정
+            .exceptionally(e -> {
+                logErrorWithBatchId(batchId);
+                return null;
+            });
+}
  
 private BatchJobItem fetchBatchJobItem(JobInfo jobInfo, Long lastBuildNumber) {
     CompletableFuture<BatchJobItem> batchJobItemFuture = getBuildInfoAsync(jobInfo.getName(), lastBuildNumber)
-            .handleAsync((buildInfo, buildInfoException) -> { // (4) Build 조회 후 가공
+            .handleAsync((buildInfo, buildInfoException) -> { // (5) Build 조회 후 가공
                 // ... 검증
  
                 return new BatchJobItem(jobInfo, buildInfo);
@@ -745,10 +768,54 @@ private BatchJobItem fetchBatchJobItem(JobInfo jobInfo, Long lastBuildNumber) {
             .thenApply(Void -> batchJobItemFuture.join())
             .join();
 }
- 
+
+private CompletableFuture<BuildInfo> getBuildInfoAsync(String batchId, long buildNumber) {
+    return CompletableFuture.supplyAsync(() -> jenkinsConnector.getBuildInfo(batchId, buildNumber), threadPoolTaskExecutor) // 기존처럼 스레드 풀 지정
+            .exceptionally(e -> {
+                logErrorWithBatchId(batchId);
+                return null;
+            });
+}
+
 // ...
 ```
 
-젠킨스 로직에서는 (2), (4)번 과정에서 대시보드 스레드 풀을 지정하던 부분을 제거하였습니다.  
+젠킨스 로직에서는 (3), (5)번 과정에서 대시보드 스레드 풀을 지정하던 부분을 제거하였습니다.  
+
+다음 로그를 보시면, 빨간색 박스의 비동기 로직을 요청하는 메인 스레드는 톰캣의 스레드 풀(NIO)을 사용하고 있는 것을 볼 수 있고, 파란색 박스의 실제 Jenkins API 요청은 직접 지정한 스레드 풀(monitoring-async)을 사용하는 것을 확인할 수 있습니다.  
+
+메인 스트림 스레드와 API 요청 스레드가 분리되었기 때문에 데드락이 걸리지 않게 된 것이죠.  
+
+[사진]  
+
+여러 케이스를 테스트하면서 안전성을 두번 세번 확인 후, 다시 2차 배포를 진행했습니다! 👏  
 
 ## 2차 배포 후
+
+[사진]  
+
+추가 배포 후 다행히 10개의 스레드로도 기능은 잘 동작했고, 조회 속도도 기대한만큼 나와주었습니다.  
+
+기존 **90초 걸리던 로직이 2초 이내로 개선**이 되어 무려 `44배`의 성능 개선율을 보여주었습니다.  
+
+## 추가 개선 예정 + Outro
+
+개발 당시에는 비동기 호출 구조에만 정신이 팔려서 인지하지 못하고 있었는데, 이번에 글을 다시 작성하면서 정리하다보니 위 내용은 다음과 같이 개선 가능하다는 사실을 깨달았습니다.  
+
+현재는 하나의 배치를 기준으로 보면 Job 조회 → 최신 Build Id 얻음 → Build 조회 로 **항상 Job을 조회한 후 Build를 조회하도록** 순차적으로 진행하고 있는데요.  
+
+꼭 Job 정보를 찔러서 최신 Build Id를 알아낸 뒤에 해당 Id 값을 사용해 조회하지 않아도, Jenkins API URL에 `lastBuild`, `lastCompletedBuild` 등과 같이 고정된 문자열을 사용해서 최신 Build에 대한 조회가 가능하다고 합니다. ~~이럴수가?~~  
+
+이렇게 되면 `${Jenkins_URL}/job/${job_name}/lastBuild/api/json` 로 특정 Job에 대한 최신 Build 조회가 가능하니, 굳이 Build를 조회하기 전에 Job을 조회하지 않아도 되고, 같은 레벨에서 Job과 Build를 동시에 조회하고 조합하는 구조로 개선할 수 있겠다는 생각이 들었습니다.  
+
+즉, 지금은 Job 50개를 먼저 다 조회한 후, Blocking을 걸어 작업 완료가 보장되면 그 다음 순서로 Build 50개를 조회하는데, 위 구조대로라면 총 100개의 요청을 **순서 상관없이 동시 요청**하고, 조회 완료 후에는 Map 등으로 가공 로직을 거쳐 원하는 형태의 Job + Build 응답값을 구성할 수 있겠다고 판단을 했습니다.  
+
+요 3차 개선 구조는 조만간 시간이 나면 바로 개선을 진행해볼 예정입니다. 조회 시간도 기대만큼 1초 대로 좀 더 단축이 되면 좋겠네요.  
+
+만들고 개선하고 장애내고 다시 개선하는 일련의 과정을 거치면서, 비교적 친숙하지 않았던 비동기 로직의 맛을 슬쩍 볼 수 있어서 ~~다 끝나고 나서는~~ 즐거웠습니다.  
+
+무엇보다 미리 데드락 상황을 로컬에서 충분히 재현하고 예측할 수 있었는데 그러지 못한 점이 가장 아쉬웠고요.  
+
+이런 경험을 통해, 또 몇 달 시간이 지났지만 글로 한번 더 정리하면서, 조금 더 [Real-정산지기](https://woowabros.github.io/experience/2020/03/02/pilot-project-wbluke.html)를 향해 한걸음 더 나아갔다고 되돌아볼 수 있는 소중한 경험이었습니다.  
+
+긴 글 읽어주셔서 감사합니다-! 😉
