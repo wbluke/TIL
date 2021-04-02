@@ -1,3 +1,5 @@
+# 제모옥은 젠킨스 조회 로직 개선으로 하겠습니다. 근데 이제 비동기를 곁들인
+
 > 제목의 밈은 [조림요정의 휴먼강록체](https://www.youtube.com/watch?v=IuBfmQs9wcA#t=65)입니다.
 
 ## Intro
