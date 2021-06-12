@@ -276,4 +276,161 @@ JPQL 등으로 여러 애그리거트를 세타 조인해서 한 번의 쿼리�
 ### 애그리거트를 팩토리로 사용하기
 
 애그리거트가 갖고 있는 데이터를 이용해서 다른 애그리거트를 생성해야 한다면 애그리거트에 팩토리 메서드를 구현하는 것을 고려해보자.  
-필요한 데이터의 일부를 직접 제공하면서 동시에 중요한 도메인 로직을 함께 구현할 수 있게 된다.
+필요한 데이터의 일부를 직접 제공하면서 동시에 중요한 도메인 로직을 함께 구현할 수 있게 된다.  
+
+## 4. 리포지터리와 모델 구현 (JPA 중심)
+
+### JPA를 이용한 리포지터리 구현
+
+애그리거트를 어떤 저장소에 저장하느냐에 따라 리포지터리를 구현하는 방법이 다르긴 하다.  
+보통 JPA를 많이 꼽는데, 데이터 보관소로 RDBMS를 사용할 때 객체 기반의 도메인 모델과 관계형 데이터 모델 간의 매핑을 처리하는 기술로 ORM 만한 것이 없다.  
+자바의 ORM 표준인 JPA를 이용해서 리포지터리와 애그리거트를 구현하는 방법에 대해 살펴보자.  
+
+리포지터리 인터페이스는 애그리거트와 같이 도메인 영역에 속하고, 리포지터리를 구현한 클래스는 인프라스트럭처 영역에 속한다.  
+
+리포지터리의 기본 기능은 다음의 두 가지이다.  
+
+- ID로 애그리거트 조회하기
+- 애그리거트 저장하기
+
+인터페이스는 애그리거트 루트를 기준으로 작성한다.  
+
+```java
+@Repository
+public class JpaOrderRepository implements OrderRepository {
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    @Override
+    public Order findById(OrderNo id) {
+        return entityManager.find(Order.class, id);
+    }
+
+    @Override
+    public void save(Order order) {
+        entityManager.persist(order);
+    }
+}
+```
+
+애그리거트를 수정한 결과를 저장소에 반영하는 메서드를 추가할 필요는 없다.  
+JPA를 사용하면 트랜잭션 범위에서 변경한 데이터를 자동으로 DB에 반영하기 때문이다.  
+
+ID 외에 다른 조건으로 애그리거트를 조회할 때에는 JPA의 Criteria나 JPQL을 사용한다.  
+
+### 매핑 구현
+
+애그리거트와 JPA 매핑을 위한 기본 규칙은 다음과 같다.  
+
+- 애그리거트 루트는 엔티티이므로 `@Entity` 로 매핑한다.
+- 한 테이블에 엔티티와 밸류 데이터가 같이 있다면,
+    - 밸류는 `@Embeddable` 로 매핑한다.
+    - 밸류 타입 프로퍼티는 `@Embedded` 로 매핑한다.
+
+JPA의 `@Entity` 와 `@Embeddable` 로 클래스를 매핑하려면 기본 생성자를 제공해야 한다.  
+하이버네이트와 같은 JPA 프로바이더는 DB에서 데이터를 읽어와 매핑된 객체를 생성할 때 기본 생성자를 사용해서 객체를 생성한다.  
+기본 생성자를 다른 코드에서 사용하면 값이 없는 온전하지 못한 객체를 만들게 되기 때문에, protected로 선언한다.  
+(하이버네이트는 클래스를 상속한 프록시 객체를 이용해서 지연 로딩을 구현한다.  
+이 경우 프록시 클래스에서 상위 클래스의 기본 생성자를 호출할 수 있어야 하므로 지연 로딩 대상이 되는 객체의 기본 생성자는 private이 아니라 protected로 지정해야 한다.  
+
+밸류 타입의 프로퍼티를 한 개 칼럼에 매핑해야 할 때는 JPA 2.1의 AttributeConverter를 사용할 수 있다.  
+
+```java
+public interface AttributeConverter<X, Y> {
+    Y convertToDatabaseColumn(X attribute);
+    X convertToEntityAttribute(Y dbData);
+}
+```
+
+실제 이를 구현한 Converter 클래스에서는 autoApply 속성값을 적용하여 모델에 출현하는 모든 X 타입의 프로퍼티에 대해 해당 컨버터를 적용할 수 있도록 한다.  
+
+```java
+@Converter(autoApply = true)
+public class MoneyConverter implements AttributeConverter<Money, Integer> {
+    // ...
+}
+```
+
+애그리거트에서 루트 엔티티를 뺀 나머지 구성요소는 대부분 밸류이다.  
+루트 엔티티 외에 또 다른 엔티티가 있다면 진짜 엔티티인지 의심해봐야 한다.  
+밸류가 아니라 엔티티가 확실하다면 다른 애그리거트는 아닌지 확인해야 한다.  
+특히, 자신만의 독자적인 라이프사이클을 갖는다면 다른 애그리거트일 가능성이 높다.  
+
+애그리거트에 속한 객체가 밸류인지 엔티티인지 구분하는 방법은 고유 식별자를 갖는지 여부를 확인하는 것이다.  
+하지만, 식별자를 찾을 때 매핑되는 테이블의 식별자를 애그리거트 구성요소의 식별자와 동일한 것으로 착각하면 안 된다.  
+별도 테이블로 저장되고 테이블에 PK가 있다고 해서 테이블과 매핑되는 애그리거트 구성요소가 고유 식별자를 갖는 것은 아니다.  
+게시글 데이터를 Article 테이블과 ArticleContent 테이블로 나눠서 저장한다고 하더라도, article_content 테이블에 있는 DB 식별자를 보고 ArticleContent도 식별자가 있을 것이라고 생각해서는 안 된다는 뜻이다.  
+ArticleContent는 엔티티가 아니라 밸류로 생각하는 것이 맞다.  
+
+밸류를 매핑한 테이블을 지정하기 위해 `@SecondaryTable` 과 `@AttributeOverride` 를 사용한다.  
+
+```java
+@Entity
+@SecondaryTable(
+    name = "article_content",
+    pkJoinColumns = @PrimaryKeyJoinColumn(name = "id")
+)
+public class Article {
+    @Id
+    private Long id;
+
+    @AttributeOverrides({
+        @AttributeOverride(name = "content",
+            column = @Column(table = "article_content")),
+        @AttributeOverride(name = "contentType",
+            column = @Column(table = "article_content"))
+    })
+    private ArticleContent content;
+}
+```
+
+앞서 3장에서 애그리거트 간 집합 연관은 성능상의 이유로 피해야 한다고 했다.  
+그럼에도 불구하고 요구사항을 구현하는 데 집합 연관을 사용하는 것이 유리하다면 ID 참조를 이용한 단방향 집합 연관을 적용해 볼 수 있다.  
+
+```java
+@Entity
+public class Product {
+    @EmbeddedId
+    private ProductId id;
+
+    @ElementCollection
+    @CollectionTable(name = "product_category",
+            joinColumns = @JoinColumn(name = "product_id"))
+    private Set<CategoryId> categoryIds;
+}
+```
+
+### 애그리거트 로딩 전략
+
+JPA 매핑을 설정할 때 항상 기억해야 할 점은 애그리거트에 속한 객체가 모두 모여야 완전한 하나가 된다는 것이다.  
+
+조회 시점에서 애그리거트를 완전한 상태가 되도록 하려면 애그리거트 루트에서 연관 매핑의 조회 방식을 즉시 로딩으로 설정하면 되나, 이 방법이 항상 좋은 것은 아니다.  
+특히 컬렉션에 대해 로딩 전략을 FetchType.EAGER로 설정하면 오히려 즉시 로딩 방식이 문제가 될 수 있다.  
+Product에 EAGER 로딩으로 `List<Image>` 와 `List<Option>` 이 매핑된 예제에서, EntityManger.find() 메서드로 Product를 조회하면 하이버네이트는 3개의 테이블을 카타시안 조인한 쿼리를 날리게 된다.  
+이는 쿼리 결과에 중복을 발생시키는데, 물론 하이버네이트가 중복된 데이터를 알맞게 제거해주긴 하지만 이는 애그리거트가 커지면 문제가 될 수 있다.  
+
+애그리거트는 개념적으로 하나여야 하지만 루트 엔티티를 로딩하는 시점에 애그리거트에 속한 객체를 모두 로딩해야 하는 것은 아니다.  
+애그리거트가 완전해야 하는 2가지 이유는 다음과 같다.  
+
+- 상태를 변경하는 기능을 실행할 때 애그리거트 상태가 완전해야 한다.
+- 표현 영역에서 애그리거트의 상태 정보를 보여줄 때 필요하기 때문이다.
+
+두 번째 이유는 별도의 조회 전용 기능을 구현하는 방식을 사용하는 것이 유리할 때가 많기 때문에 애그리거트의 완전한 로딩과 관련된 문제는 상태 변경과 더 관련이 있다.  
+JPA는 트랜잭션 범위 내에서 지연 로딩을 허용하기 때문에 FetchType.LAZY로 놓고, 실제 상태를 변경하는 시점에 필요한 구성요소만 로딩해도 문제가 되지 않는다.  
+
+### 애그리거트의 영속성 전파
+
+애그리거트가 완전한 상태여야 한다는 것은 애그리거트 루트를 조회할 때뿐만 아니라 저장하고 삭제할 때도 하나로 처리해야 함을 의미한다.  
+
+애그리거트에 속한 `@Entity` 타입에 대한 매핑은 cascade 속성을 사용해서 저장과 삭제 사이에 함께 처리되도록 설정해야 한다.  
+`@OneToOne` , `@OneToMany` 는 cascade 속성의 기본값이 없으므로 cascade 속성값으로 CascadeType.PERSIST, CascadeType.REMOVE 를 설정한다.  
+
+### 식별자 생성 기능
+
+식별자 생성 규칙이 있는 경우 엔티티를 생성할 때 이미 생성한 식별자를 전달하므로 엔티티가 식별자 생성 기능을 제공하는 것보다는 별도 서비스로 식별자 생성 기능을 분리해야 한다.  
+식별자 생성 규칙은 도메인 규칙이므로 도메인 영역에 식별자 생성 기능을 위치시켜야 한다.  
+
+식별자 생성 규칙을 구현하기에 적합한 또 다른 장소는 리포지터리이다.  
+리포지터리 인터페이스에 식별자를 생성하는 메서드를 추가하고 리포지터리 구현 클래스에서 알맞게 구현하면 된다.  
+
+식별자 생성으로 DB의 자동 증가 칼럼을 사용할 경우 JPA의 식별자 매핑에서 `@GeneratedValue` 를 사용한다.
