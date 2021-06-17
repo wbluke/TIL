@@ -95,8 +95,6 @@ The Spring container can autowire relationships between collaborating beans. You
 - Autowiring can significantly reduce the need to specify properties or constructor arguments. (Other mechanisms such as a bean template [discussed elsewhere in this chapter](https://docs.spring.io/spring-framework/docs/current/reference/html/core.html#beans-child-bean-definitions) are also valuable in this regard.)
 - Autowiring can update a configuration as your objects evolve. For example, if you need to add a dependency to a class, that dependency can be satisfied automatically without you needing to modify the configuration. Thus autowiring can be especially useful during development, without negating the option of switching to explicit wiring when the code base becomes more stable.
 
----
-
 ### 빈 스코프
 
 빈의 정의를 보고 빈을 생성할 때, 의존성과 설정값들 뿐만 아니라 객체의 생애 주기(scope)도 결정할 수 있다.  
@@ -143,4 +141,37 @@ request, session, application, websocket 스코프는 웹 기반 `ApplicationCon
 request 스코프는 HTTP 요청 단위로 빈을 생성하고, session 스코프는 HTTP Session 단위로 빈을 생성한다.  
 application 스코프는 ServletContext 단위로 빈이 생겨 싱글턴과 유사하지만, ApplicationContext 단위가 아니라 ServletContext 단위라는 점이 다르고, ServletContext의 속성으로 드러난다는 것이 다르다.  
 
-커스텀한 스코프는 `org.springframework.beans.factory.config.Scope` 인터페이스를 사용하면 구현할 수 있다.
+커스텀한 스코프는 `org.springframework.beans.factory.config.Scope` 인터페이스를 사용하면 구현할 수 있다.  
+
+### 컨테이너 확장 포인트
+
+`BeanPostProcessor` (빈 후처리기) 인터페이스는 초기화 로직, 의존성 로직 등을 재정의할 수 있도록 하는 콜백 메서드이다.  
+만약 스프링 컨테이너가 빈을 초기화한 후에 특별한 커스텀 로직을 수행하도록 추가하고 싶다면, 필요한 만큼 `BeanPostProcessor` 구현을 추가하면 된다.  
+
+여러 개의 `BeanPostProcessor` 인스턴스를 구성할 때에는, `order` 속성으로 인스턴스 간 순서를 지정할 수 있다.  
+이는 `Ordered` 인터페이스로 지정 가능하며, `BeanPostProcessor` 를 사용할 때 항상 같이 고려하는 것이 좋다.  
+
+`BeanPostProcessor` 는 2개의 콜백 메서드를 가지는데, 각각 빈이 생성되기 전과 후를 제어할 수 있는 메서드들이다.  
+빈 후처리기는 이 메서드를 통해 빈의 생성에 대한 어떤 처리도 진행할 수 있다.  
+몇몇 스프링 AOP에서는 빈 후처리기를 사용해 프록시 래핑 로직을 수행하기도 한다.  
+
+다음은 `BeanFactoryPostProcessor` 이다.  
+`BeanPostProcessor` 와 비슷하지만, 가장 큰 차이점은, `BeanFactoryPostProcessor` 는 빈 설정 메타데이터에서 동작한다는 것이다.  
+이는 스프링 IoC 컨테이너가 `BeanFactoryPostProcessor` 가 설정 메타데이터를 읽고 변경할 수 있도록 허용한다는 뜻이다.  
+
+`BeanPostProcessor` 와 마찬가지로, 여러 개의 `BeanFactoryPostProcessor` 를 사용하는 경우 `Ordered` 인터페이스로 순서를 같이 고려하는 것이 좋다.  
+
+빈 팩토리 후처리기는 ApplicationContext에 선언되어 있는 경우 컨테이너에 정의된 설정 메타데이터를 변경하기 위해 자동으로 동작한다.  
+스프링에는 이미 정의된 여러 빈 팩토리 후처리기가 존재하며, 커스텀한 빈 팩토리 후처리기를 추가할 수도 있다.  
+
+`FactoryBean` 인터페이스는 빈을 생성할 수 있는 인터페이스이다.  
+만약 어떤 빈의 초기화 로직이 복잡해서, XML 설정 등으로 구성하기가 어려운 경우 커스텀한 `FactoryBean` 을 구성해서 추가할 수 있다.  
+`FactoryBean` 은 다음 3가지 메서드를 가진다.  
+
+- `T getObject()`
+    - 해당 팩토리가 생성한 빈 인스턴스를 반환한다.
+    - 팩토리가 싱글턴을 반환하는지 프로토타입을 반환하는지에 따라 인스턴스를 공유할 수 있다.
+- `boolean isSingleton()`
+    - 싱글턴 빈을 반환하는지의 여부
+- `ClasS<?> getObjectType()`
+    - 생성하는 빈의 타입
