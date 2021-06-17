@@ -94,3 +94,53 @@ The Spring container can autowire relationships between collaborating beans. You
 
 - Autowiring can significantly reduce the need to specify properties or constructor arguments. (Other mechanisms such as a bean template [discussed elsewhere in this chapter](https://docs.spring.io/spring-framework/docs/current/reference/html/core.html#beans-child-bean-definitions) are also valuable in this regard.)
 - Autowiring can update a configuration as your objects evolve. For example, if you need to add a dependency to a class, that dependency can be satisfied automatically without you needing to modify the configuration. Thus autowiring can be especially useful during development, without negating the option of switching to explicit wiring when the code base becomes more stable.
+
+---
+
+### 빈 스코프
+
+빈의 정의를 보고 빈을 생성할 때, 의존성과 설정값들 뿐만 아니라 객체의 생애 주기(scope)도 결정할 수 있다.  
+이런 접근은 굉장히 강력하고 유연한 기능인데, 자바 클래스 레벨에서 객체의 생애 주기를 지정하지 않고, 그저 스코프를 객체에 알맞게 선택만 하면 되기 때문이다.  
+
+스프링 프레임워크는 다음 6가지 스코프를 지원한다.  
+그 중 4개는 웹 기반 `ApplicationContext` 에서 사용 가능한 스코프이다.  
+물론 커스텀한 스코프도 만들 수 있다.  
+
+- singleton
+    - (기본값) IoC 컨테이너마다 딱 하나씩만 존재하는 빈
+- prototype
+    - 여러 개의 인스턴스가 생성될 수 있는 스코프
+- request
+    - 단건 HTTP 요청에 따른 생애주기를 가짐
+    - 웹 기반 `ApplicationContext` 에서 사용 가능
+- session
+    - HTTP Session 단위로 생애주기를 가짐
+    - 웹 기반 `ApplicationContext` 에서 사용 가능
+- application
+    - `ServletContext` 단위로 생애주기를 가짐
+    - 웹 기반 `ApplicationContext` 에서 사용 가능
+- websocket
+    - `WebSocket` 단위로 생애주기를 가짐
+    - 웹 기반 `ApplicationContext` 에서 사용 가능
+
+싱글턴 빈은 단 하나만 만들어지고 공유되며, 해당 빈을 id로 참조하고 있는 모든 요청이 스프링 컨테이너에 의해 반환되는 1개의 특정 인스턴스를 받게 된다.  
+즉, 스프링 컨테이너는 싱글턴으로 정의된 빈은 단 1개만 생성한다.  
+생성된 하나의 인스턴스는 싱글턴 빈으로 캐싱되었다가 모든 하위 요청과 참조 위치에 반환된다.  
+
+싱글턴이 아닌 프로토타입 스코프는 매 요청 시 새로운 빈 인스턴스를 만들게 된다.  
+다른 스코프들과 다르게, 스프링은 프로토타입 빈의 생애주기를 완전히 관리하지 않는다.  
+컨테이너는 프로토타입 빈을 원하는 요청을 받을 때, 생성에만 관여한 이후로는 책임을 클라이언트에게 넘긴다.  
+그에 따라 클라이언트는 프로토타입 빈을 정리하고, 할당된 높은 비용의 리소스들을 해소해야만 한다.  
+즉, 스프링 컨테이너의 역할은 프로토타입 빈의 `new` 연산자에만 관여하는 것이다.  
+
+프로토타입 빈을 싱글턴 빈에 주입하게 되면 프로토타입 빈이 단 한번만 생성되게 되니 주의해야 한다.  
+
+request, session, application, websocket 스코프는 웹 기반 `ApplicationContext` 에서만 사용 가능하다.  
+이 스코프들은 싱글턴, 프로토타입 스코프와 다르게 약간의 초기 설정이 필요하다.  
+스프링 MVC를 사용하고 있다면, 즉 `DispatcherServlet` 에 의해 다뤄지는 요청이라면, 특별한 세팅은 필요 없다.  
+그 외 Servlet 2.5 컨테이너를 사용하고 있다면, RequestContextListener 등록을 해줘야 하고, Servlet 3.0 이상의 버전을 사용하고 있다면, WebApplicationInitializer 인터페이스를 사용하면 된다.  
+
+request 스코프는 HTTP 요청 단위로 빈을 생성하고, session 스코프는 HTTP Session 단위로 빈을 생성한다.  
+application 스코프는 ServletContext 단위로 빈이 생겨 싱글턴과 유사하지만, ApplicationContext 단위가 아니라 ServletContext 단위라는 점이 다르고, ServletContext의 속성으로 드러난다는 것이 다르다.  
+
+커스텀한 스코프는 `org.springframework.beans.factory.config.Scope` 인터페이스를 사용하면 구현할 수 있다.
