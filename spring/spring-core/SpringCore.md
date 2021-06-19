@@ -69,31 +69,16 @@ DI 방식을 사용하면 코드도 훨씬 깔끔하고, 이런 디커플링은 
 객체는 의존성을 찾지도, 해당 객체가 어디에 있는지도 알지 못한다.  
 결과적으로, 클래스는 테스트하기 쉬워지고, 특히 의존성이 인터페이스이거나 추상클래스인 경우 단위 테스트에서 테스트 대역을 사용할 수 있다.  
 
-Constructor-based DI is accomplished by the container invoking a constructor with a number of arguments, each representing a dependency. Calling a static factory method with specific arguments to construct the bean is nearly equivalent
+생성자 기반 DI는 필요한 의존성을 나타내는 생성자의 인자들을 기반으로 구성된다.  
+스태틱 팩토리 메서드도 마찬가지다.  
 
-Constructor argument resolution matching occurs by using the argument’s type
+setter 기반 DI는 기본 생성자나 기본 스태틱 팩토리 메서드를 사용해 빈 인스턴스를 만든 후, setter 메서드로 의존성을 주입하는 방식이다.  
 
-Setter-based DI is accomplished by the container calling setter methods on your beans after invoking a no-argument constructor or a no-argument static factory method to instantiate your bean.
+스프링 팀에서는 일반적으로 setter DI보다 생성자 DI를 선호하는데, 이는 컴포넌트를 불변으로 만들어주고 의존성이 null이 아님을 보장해주기 때문이다.  
+게다가, 생성자 DI 컴포넌트는 항상 클라이언트에게 완전히 초기화된 상태의 인스턴스를 보장한다.  
+부작용이라면, 많은 수의 생성자 파라미터는 좋지 않은 코드 스멜을 야기한다는 것이다.  
 
-- Constructor-based or setter-based DI?
-
-The Spring team generally advocates constructor injection, as it lets you implement application components as immutable objects and ensures that required dependencies are not null.
-
-Furthermore, constructor-injected components are always returned to the client (calling) code in a fully initialized state. As a side note, a large number of constructor arguments is a bad code smell, implying that the class likely has too many responsibilities and should be refactored to better address proper separation of concerns.
-
-- Circular dependencies
-
-If you use predominantly constructor injection, it is possible to create an unresolvable circular dependency scenario.
-
----
-
-you can define bean properties and constructor arguments as references to other managed beans (collaborators) or as values defined inline.
-Spring’s XML-based configuration metadata supports sub-element types within its `<property/>` and `<constructor-arg/>` elements for this purpose.
-
-The Spring container can autowire relationships between collaborating beans. You can let Spring resolve collaborators (other beans) automatically for your bean by inspecting the contents of the `ApplicationContext`. Autowiring has the following advantages:
-
-- Autowiring can significantly reduce the need to specify properties or constructor arguments. (Other mechanisms such as a bean template [discussed elsewhere in this chapter](https://docs.spring.io/spring-framework/docs/current/reference/html/core.html#beans-child-bean-definitions) are also valuable in this regard.)
-- Autowiring can update a configuration as your objects evolve. For example, if you need to add a dependency to a class, that dependency can be satisfied automatically without you needing to modify the configuration. Thus autowiring can be especially useful during development, without negating the option of switching to explicit wiring when the code base becomes more stable.
+또한 생성자 DI를 사용한다면, 순환 참조의 발생 가능성도 존재하게 된다.  
 
 ### 빈 스코프
 
@@ -145,28 +130,28 @@ application 스코프는 ServletContext 단위로 빈이 생겨 싱글턴과 유
 
 ### 컨테이너 확장 포인트
 
-`BeanPostProcessor` (빈 후처리기) 인터페이스는 초기화 로직, 의존성 로직 등을 재정의할 수 있도록 하는 콜백 메서드이다.  
-만약 스프링 컨테이너가 빈을 초기화한 후에 특별한 커스텀 로직을 수행하도록 추가하고 싶다면, 필요한 만큼 `BeanPostProcessor` 구현을 추가하면 된다.  
+`BeanPostProcessor` (빈 후처리기) 인터페이스는 초기화 로직, 의존성 로직 등을 재정의할 수 있도록 하는 콜백 메서드들이다.  
+만약 스프링 컨테이너가 빈을 초기화한 후에 특별한 커스텀 로직을 수행하도록 추가하고 싶다면, 필요한 만큼 BeanPostProcessor 구현을 추가하면 된다.  
 
-여러 개의 `BeanPostProcessor` 인스턴스를 구성할 때에는, `order` 속성으로 인스턴스 간 순서를 지정할 수 있다.  
-이는 `Ordered` 인터페이스로 지정 가능하며, `BeanPostProcessor` 를 사용할 때 항상 같이 고려하는 것이 좋다.  
+여러 개의 BeanPostProcessor 인스턴스를 구성할 때에는, `order` 속성으로 인스턴스 간 순서를 지정할 수 있다.  
+이는 `Ordered` 인터페이스로 지정 가능하며, BeanPostProcessor를 사용할 때 항상 같이 고려하는 것이 좋다.  
 
-`BeanPostProcessor` 는 2개의 콜백 메서드를 가지는데, 각각 빈이 생성되기 전과 후를 제어할 수 있는 메서드들이다.  
+BeanPostProcessor는 2개의 콜백 메서드를 가지는데, 각각 빈이 생성되기 전과 후를 제어할 수 있는 메서드들이다.  
 빈 후처리기는 이 메서드를 통해 빈의 생성에 대한 어떤 처리도 진행할 수 있다.  
 몇몇 스프링 AOP에서는 빈 후처리기를 사용해 프록시 래핑 로직을 수행하기도 한다.  
 
 다음은 `BeanFactoryPostProcessor` 이다.  
-`BeanPostProcessor` 와 비슷하지만, 가장 큰 차이점은, `BeanFactoryPostProcessor` 는 빈 설정 메타데이터에서 동작한다는 것이다.  
-이는 스프링 IoC 컨테이너가 `BeanFactoryPostProcessor` 가 설정 메타데이터를 읽고 변경할 수 있도록 허용한다는 뜻이다.  
+BeanPostProcessor와 비슷하지만, 가장 큰 차이점은, BeanFactoryPostProcessor는 빈 설정 메타데이터에서 동작한다는 것이다.  
+이는 스프링 IoC 컨테이너가 BeanFactoryPostProcessor가 설정 메타데이터를 읽고 변경할 수 있도록 허용한다는 뜻이다.  
 
-`BeanPostProcessor` 와 마찬가지로, 여러 개의 `BeanFactoryPostProcessor` 를 사용하는 경우 `Ordered` 인터페이스로 순서를 같이 고려하는 것이 좋다.  
+BeanPostProcessor와 마찬가지로, 여러 개의 BeanFactoryPostProcessor를 사용하는 경우 `Ordered` 인터페이스로 순서를 같이 고려하는 것이 좋다.  
 
 빈 팩토리 후처리기는 ApplicationContext에 선언되어 있는 경우 컨테이너에 정의된 설정 메타데이터를 변경하기 위해 자동으로 동작한다.  
 스프링에는 이미 정의된 여러 빈 팩토리 후처리기가 존재하며, 커스텀한 빈 팩토리 후처리기를 추가할 수도 있다.  
 
 `FactoryBean` 인터페이스는 빈을 생성할 수 있는 인터페이스이다.  
-만약 어떤 빈의 초기화 로직이 복잡해서, XML 설정 등으로 구성하기가 어려운 경우 커스텀한 `FactoryBean` 을 구성해서 추가할 수 있다.  
-`FactoryBean` 은 다음 3가지 메서드를 가진다.  
+만약 어떤 빈의 초기화 로직이 복잡해서, XML 설정 등으로 구성하기가 어려운 경우 커스텀한 FactoryBean을 구성해서 추가할 수 있다.  
+FactoryBean은 다음 3가지 메서드를 가진다.  
 
 - `T getObject()`
     - 해당 팩토리가 생성한 빈 인스턴스를 반환한다.
