@@ -160,3 +160,97 @@ FactoryBean은 다음 3가지 메서드를 가진다.
     - 싱글턴 빈을 반환하는지의 여부
 - `ClasS<?> getObjectType()`
     - 생성하는 빈의 타입
+
+### 어노테이션 기반 컨테이너 설정
+
+> '어노테이션 기반 설정이 XML 설정 보다 나을까?' 라는 질문에 대한 답은 '개발자에게 달렸다'이다.  
+어노테이션은 짧고 간결한 설정을 통해 선언만으로 많은 맥락을 제공하는 반면, XML은 본연의 소스 코드를 건드리지 않고 설정을 할 수 있다는 특징을 가지고 있다.  
+어떤 개발자들은 소스 코드와 설정을 하나로 묶는 반면 또 다른 이들은 어노테이션 기반 클래스들이 더이상 POJO가 아니며, 설정들이 군집화되지 않고 제어하기 힘들다고 주장한다.  
+스프링은 두 가지 스타일 모두 수용하고 있고, 동시 사용도 허용하고 있으니 상황에 맞게 사용하면 된다.
+
+태그를 사용하는 XML 설정의 대안으로 바이트코드 수준에서 컴포넌트들을 연결하는 어노테이션 기반 설정이 있다.  
+XML로 빈 와이어링을 설정하는 대신, 어노테이션을 통해 설정값들을 컴포넌트 클래스로 옮기는 방식이다.  
+
+`@Required` 어노테이션은 setter 메서드에 쓰인다.  
+
+```java
+@Required
+public void setMovieFinder(MovieFinder movieFinder) {
+    this.movieFinder = movieFinder;
+}
+```
+
+이는 초기 빈 설정 시 빈 정의나 오토와이어링을 통해 필요한 빈 프로퍼티가 있음을 알려주는 어노테이션이다.  
+
+`@Autowired` 는 다음과 같이 사용한다.  
+
+```java
+public class MovieRecommender {
+
+    private final CustomerPreferenceDao customerPreferenceDao;
+
+    @Autowired
+    public MovieRecommender(CustomerPreferenceDao customerPreferenceDao) {
+        this.customerPreferenceDao = customerPreferenceDao;
+    }
+
+    // ...
+}
+```
+
+생성자 뿐만 아니라 setter 메서드, 필드에도 사용할 수 있다.  
+
+오토와이어링 시에는 여러 빈 후보들이 있을 수 있기 때문에, 어떤 빈을 선택할지에 대한 제어가 필요하다.  
+이를 구성하는 어노테이션 중 하나가 바로 `@Primary` 이다.  
+`@Primary` 는 여러 후보 빈 중 특정 빈을 우선적으로 선택할 수 있도록 알려주는 어노테이션이다.  
+
+```java
+@Configuration
+public class MovieConfiguration {
+
+    @Bean
+    @Primary
+    public MovieCatalog firstMovieCatalog() { ... }
+
+    @Bean
+    public MovieCatalog secondMovieCatalog() { ... }
+
+    // ...
+}
+```
+
+좀 더 세밀한 조정을 원한다면, `@Qualifier` 어노테이션을 사용해볼 수도 있다.  
+`@Primary` 가 하나의 우선 후보가 존재할 때 사용하면 좋은 반면, `@Qualifier` 는 전달한 파라미터 기반으로 어떤 빈을 선택할지 정할 수 있는 어노테이션이다.  
+
+```java
+public class MovieRecommender {
+
+    @Autowired
+    @Qualifier("main")
+    private MovieCatalog movieCatalog;
+
+    // ...
+}
+```
+
+커스텀한 Qualifier 어노테이션을 만들 수도 있다.  
+
+```java
+@Target({ElementType.FIELD, ElementType.PARAMETER})
+@Retention(RetentionPolicy.RUNTIME)
+@Qualifier
+public @interface Genre {
+
+    String value();
+}
+
+@Target({ElementType.FIELD, ElementType.PARAMETER})
+@Retention(RetentionPolicy.RUNTIME)
+@Qualifier
+public @interface MovieQualifier {
+
+    String genre();
+
+    Format format(); // Enum
+}
+```
