@@ -181,6 +181,7 @@ public void setMovieFinder(MovieFinder movieFinder) {
 ```
 
 이는 초기 빈 설정 시 빈 정의나 오토와이어링을 통해 필요한 빈 프로퍼티가 있음을 알려주는 어노테이션이다.  
+Spring 5.1부터는 Deprecated 되었다.  
 
 `@Autowired` 는 다음과 같이 사용한다.  
 
@@ -252,5 +253,64 @@ public @interface MovieQualifier {
     String genre();
 
     Format format(); // Enum
+}
+```
+
+Qualifer는 제네릭 타입도 감지한다.  
+`Store<String>` 과 `Store<Integer>` 를 각각 구현한 Store가 있다고 가정할 경우, 아래와 같이 사용 가능하다.  
+
+```java
+@Configuration
+public class MyConfiguration {
+
+    @Bean
+    public StringStore stringStore() {
+        return new StringStore();
+    }
+
+    @Bean
+    public IntegerStore integerStore() {
+        return new IntegerStore();
+    }
+}
+// -----------------------------------------
+@Autowired
+private Store<String> s1; // <String> qualifier
+
+@Autowired
+private Store<Integer> s2; // <Integer> qualifier
+```
+
+`@Value` 는 외부 프로퍼티를 주입할 수 있는 어노테이션이다.  
+
+```java
+@Component
+public class MovieRecommender {
+
+    private final String catalog;
+
+    public MovieRecommender(@Value("${catalog.name}") String catalog) {
+        this.catalog = catalog;
+    }
+}
+// -----------------------------------------
+// application.properties
+catalog.name = MovieCatalog
+```
+
+`@PostConstruct` 는 빈 생성 전 초기화 로직을 추가할 수 있는 어노테이션이고, `@PreDestroy` 는 빈 소멸 시에 필요한 로직을 추가할 수 있는 어노테이션이다.  
+
+```java
+public class CachingMovieLister {
+
+    @PostConstruct
+    public void populateMovieCache() {
+        // 초기화 로직
+    }
+
+    @PreDestroy
+    public void clearMovieCache() {
+        // 클리어 로직
+    }
 }
 ```
