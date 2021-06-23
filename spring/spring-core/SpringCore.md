@@ -314,3 +314,64 @@ public class CachingMovieLister {
     }
 }
 ```
+
+### Classpath 스캔과 컴포넌트 관리
+
+지금까지 위 예제들에서는 빈에 대한 정의를 XML 기반으로 진행했지만, 이번에는 클래스패스를 스캔하여 후보 컴포넌트를 찾는 방식을 알아보려고 한다.  
+
+스프링은 `@Component` 어노테이션과 `@Repository` , `@Service` , `@Controller` 등의 `@Component` 어노테이션의 특수 케이스인 어노테이션들을 제공한다.  
+`@Component` 를 사용하면 스프링에 의해 관리되는 컴포넌트, 혹은 에스펙트(aspect)를 적용하도록 해당 클래스를 사용할 수 있고, `@Repository` , `@Service` , `@Controller` 는 각 레이어에 맞게 사용할 수 있다.  
+
+스프링에서 제공되는 여러 어노테이션들은 코드에서 메타 어노테이션으로 활용된다.  
+예를 들어, `@Service` 어노테이션은 `@Component` 어노테이션을 가진 메타 어노테이션이다.  
+또한 메타 어노테이션은 여러 어노테이션이 합쳐져서 만들어지기도 한다.  
+`@RestController` 는 `@Controller` 와 `@ResponseBody` 가 합쳐진 메타 어노테이션이다.  
+
+스프링은 이런 클래스들을 자동으로 찾아서 ApplicationContext를 통해 BeanDefinition 을 만들어 등록할 수 있다.  
+빈들을 찾고 등록하기 위해서는 `@Configuration` 클래스에 `@ComponentScan` 어노테이션을 추가해야 한다.  
+
+빈 스캔 시에 원하는 타입을 정해서 필터도 적용할 수 있다.  
+특정 클래스를 상속받는 어노테이션이라던가, Aspectj 표현식, 정규식, 커스텀한 필터 등으로 필터링하여 스캔할 수 있다.  
+
+```java
+@Configuration
+@ComponentScan(basePackages = "org.example",
+        includeFilters = @Filter(type = FilterType.REGEX, pattern = ".*Stub.*Repository"),
+        excludeFilters = @Filter(Repository.class))
+public class AppConfig {
+    ...
+}
+```
+
+스프링 컴포넌트는 또한 컨테이너에게 빈 정의 메타데이터를 구성해서 넘겨줄 수 있다.  
+이를 `@Configuration` 클래스에서 `@Bean` 어노테이션을 사용해 특정 빈을 정의하여 컨테이너에 넘겨줄 수 있다.  
+
+```java
+@Component
+public class FactoryMethodComponent {
+
+    @Bean
+    @Qualifier("public")
+    public TestBean publicInstance() {
+        return new TestBean("publicInstance");
+    }
+
+}
+```
+
+일반 스프링 컴포넌트의 `@Bean` 메서드와 `@Configuration` 내의 `@Bean` 메서드는 차이가 있다.  
+차이점은 `@Component` 클래스가 메서드나 필드 호출을 가로채기 위해서 CGLIB를 사용하지 않는다는 것이다.  
+
+컴포넌트가 디텍팅되면, 빈의 이름은 BeanNameGenerator를 통해 생성된다.  
+스프링의 기본 제공 어노테이션(`@Component` , `@Repository` , `@Service` , `@Controller` )들은 이에 따라 해당 빈 정의에 이름을 제공한다.  
+
+스프링이 관리하는 컴포넌트는 기본적으로 `싱글턴` 스코프를 갖는다.  
+그러나 때로 다른 스코프를 지정해야 할 때가 있는데, 이때는 `@Scope` 어노테이션을 사용하면 된다.  
+
+```java
+@Scope("prototype")
+@Repository
+public class MovieFinderImpl implements MovieFinder {
+    // ...
+}
+```
