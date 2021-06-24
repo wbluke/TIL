@@ -375,3 +375,145 @@ public class MovieFinderImpl implements MovieFinder {
     // ...
 }
 ```
+
+### JSR 330 표준 어노테이션
+
+스프링 3.0을 사용한다면, 스프링은 JSR-330 표준 어노테이션의 지원을 제공한다.  
+이 어노테이션들은 스프링 어노테이션과 마찬가지로 스캐닝되며, 사용하려면 관련 jar 파일을 클래스패스에 추가해야 한다.  
+
+`@Autowired` 대신 `@Inject` 를 사용해볼 수도 있다.  
+`@Autowired` 와 마찬가지로, `@Inject` 도 필드 레벨, 메서드 레벨, 생성자 레벨에 적용할 수 있다.  
+게다가 주입 포인트에 Provider를 선언하면 주입받은 빈에 대한 지연 로딩을 구현할 수도 있다.  
+
+```java
+import javax.inject.Inject;
+
+public class SimpleMovieLister {
+
+    private Provider<MovieFinder> movieFinder;
+
+    @Inject
+    public void setMovieFinder(Provider<MovieFinder> movieFinder) {
+        this.movieFinder = movieFinder;
+    }
+
+}
+```
+
+`@Named` 와 `@ManagedBean` 은 `@Component` 대신 사용해볼 수도 있다.  
+
+```java
+@Named("movieListener")  // @ManagedBean("movieListener")
+public class SimpleMovieLister {
+
+    private MovieFinder movieFinder;
+
+    @Inject
+    public void setMovieFinder(MovieFinder movieFinder) {
+        this.movieFinder = movieFinder;
+    }
+
+}
+```
+
+스프링의 어노테이션을 대체할 수 있는 나머지 JSR-330 어노테이션에 대한 소개와 제약 사항은 다음과 같다.  
+
+- `@Autowired`
+    - `@Inject` 로 대체 가능
+    - `@Inject` 에는 required 필드가 없어서, 필요하다면 Java8의 Optional을 같이 활용해야 한다.
+- `@Component`
+    - `@Named` , `@ManagedBean` 으로 대체 가능
+    - 구성 가능한 모델을 제공하지 않고 이름으로 식별하는 방법만 제공
+- `@Scope("singleton")`
+    - `@Singleton`
+    - JSR-330의 기본 스코프는 스프링의 prototype과 비슷하게 동작하지만, 스프링 컨테이너 내에서는 싱글턴으로 동작하도록 선언되었다.
+- `@Qualifier`
+    - `@Qualifier` , `@Named`
+- `@Value` , `@Required` , `@Lazy`
+    - 대체할 수 있는 사항이 없다.
+- ObjectFactory
+    - Provider
+
+### Java 기반 컨테이너 설정
+
+이번 섹션에서는 자바 코드에서 스프링 컨테이너 설정을 어떻게 해야하는지를 알아본다.  
+
+스프링의 새로운 자바 구성 지원의 중심 요소는 `@Configuration` 가 적용된 클래스와 `@Bean` 이 적용된 메서드이다.  
+`@Bean` 은 메서드에서 스프링 컨테이너에서 관리할 새로운 객체를 생성하고, 구성하고, 초기화할 때 사용한다.  
+`@Bean` 이 달린 메서드는 어느 `@Component` 클래스에서도 사용 가능하지만, 보통은 `@Configuration` 클래스에서 사용된다.  
+
+`@Configuration` 선언의 가장 주된 목적은 빈 정의의 원천임을 나타내는 것이다.  
+`@Configuration` 클래스 내에서 다른 `@Bean` 메서드를 호출하여 빈 간 종속성을 정의할 수 있다.  
+
+```java
+@Configuration
+public class AppConfig {
+
+    @Bean
+    public MyService myService() {
+        return new MyServiceImpl();
+    }
+}
+```
+
+@Configuration으로 주석이 추가되지 않은 클래스 내에서 @Bean 메서드가 선언되면 "라이트"모드에서 처리되는 것으로 참조됩니다. @Component 또는 평범한 이전 클래스에서 선언 된 Bean 메소드는 포함하는 클래스의 주요 목적이 다르고 @Bean 메소드가 일종의 보너스 인 "라이트"로 간주됩니다. 예를 들어, 서비스 컴포넌트는 적용 가능한 각 컴포넌트 클래스에 대한 추가 @Bean 메소드를 통해 컨테이너에 관리 뷰를 노출 할 수 있습니다. 이러한 시나리오에서 @Bean 메서드는 범용 팩토리 메서드 메커니즘입니다.
+
+전체 @Configuration과 달리, 라이트 @Bean 메소드는 Bean 간 종속성을 선언 할 수 없습니다. 대신 포함하는 구성 요소의 내부 상태와 선택적으로 선언 할 수있는 인수에서 작동합니다. 따라서 이러한 @Bean 메서드는 다른 @Bean 메서드를 호출해서는 안됩니다. 이러한 각 메서드는 특별한 런타임 의미 체계없이 문자 그대로 특정 빈 참조에 대한 팩토리 메서드 일뿐입니다. 여기서 긍정적 인 부작용은 런타임에 CGLIB 서브 클래 싱을 적용 할 필요가 없기 때문에 클래스 디자인 측면에서 제한이 없다는 것입니다 (즉, 포함하는 클래스가 최종 클래스 일 수 있음).
+
+일반적인 시나리오에서 @Bean 메서드는 @Configuration 클래스 내에서 선언되어 "전체"모드가 항상 사용되고 교차 메서드 참조가 컨테이너의 수명주기 관리로 리디렉션되도록합니다. 이렇게하면 동일한 @Bean 메서드가 일반 Java 호출을 통해 실수로 호출되는 것을 방지하여 "라이트"모드에서 작동 할 때 추적하기 어려울 수있는 미묘한 버그를 줄이는 데 도움이됩니다.
+
+> `@Configuration` 이 선언되지 않은 클래스에서 `@Bean` 메서드가 선언되면 `lite` 한 모드에서 처리되는 것으로 인식된다.  
+예를 들어 서비스 컴포넌트는 적용 가능한 각 컴포넌트 클래스에 대한 라이트 `@Bean` 선언을 통해 컨테이너에 관리 뷰를 노출할 수 있다.  
+일반적인 `@Configuration` 내 `@Bean` 선언과 달리, 라이트 `@Bean` 메서드는 빈 간 종속성을 선언할 수 없다.  
+그래서 이런 `@Bean` 메서드는 다른 `@Bean` 메서드를 호출해서는 안 된다.  
+일반적인 시나리오에서는 `@Bean` 메서드는 `@Configuration` 클래스 내에서 선언되어 "full" 모드로 사용되고, 컨테이너의 라이프사이클 관리 하에 각 메서드 참조가 동작하도록 하는 것이 좋다.
+
+다음은 스프링 3.0에서 소개된 `AnnotationConfigApplicationContext` 이다.  
+이 다용도의 ApplicationContext 구현체는 `@Configuration` 클래스를 받아들일 수 있을 뿐만 아니라 `@Component` 클래스나 JSR-330 어노테이션 클래스도 받아들일 수 있다.  
+
+`@Configuration` 클래스가 입력으로 제공되면 해당 클래스 자체가 빈 정의로 등록되고 클래스 내에 선언된 모든 `@Bean` 메서드도 빈 정의로 등록된다.  
+`@Component` 및 JSR-330 클래스가 제공되면 빈 정의로 등록되고, 필요한 경우 `@Autowired` 나 `@Inject` 와 같은 DI 메타 데이터를 사용하는 것으로 가정한다.  
+
+```java
+public static void main(String[] args) {
+    ApplicationContext ctx = new AnnotationConfigApplicationContext(AppConfig.class);
+    MyService myService = ctx.getBean(MyService.class);
+    myService.doStuff();
+}
+```
+
+또는 다음과 같이 register()로 등록할 수도 있다.  
+
+```java
+public static void main(String[] args) {
+    AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
+    ctx.register(AppConfig.class, OtherConfig.class);
+    ctx.register(AdditionalConfig.class);
+    ctx.refresh();
+
+    MyService myService = ctx.getBean(MyService.class);
+    myService.doStuff();
+}
+```
+
+컴포넌트 스캔을 원한다면 다음과 같이 패키지 기반 범위를 지정할 수 있다.  
+
+```java
+@Configuration
+@ComponentScan(basePackages = "com.acme") 
+public class AppConfig  {
+    ...
+}
+```
+
+위 예제는 "com.acme" 패키지 하위의 모든 `@Component` 클래스를 찾아서 컨테이너에 빈 정의로 등록한다.  
+`AnnotationConfigApplicationContext` 에서도 scan() 메서드로 위 스캐닝을 진행할 수 있다.  
+
+```java
+public static void main(String[] args) {
+    AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
+    ctx.scan("com.acme");
+    ctx.refresh();
+    MyService myService = ctx.getBean(MyService.class);
+}
+```
