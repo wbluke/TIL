@@ -456,12 +456,6 @@ public class AppConfig {
 }
 ```
 
-@Configuration으로 주석이 추가되지 않은 클래스 내에서 @Bean 메서드가 선언되면 "라이트"모드에서 처리되는 것으로 참조됩니다. @Component 또는 평범한 이전 클래스에서 선언 된 Bean 메소드는 포함하는 클래스의 주요 목적이 다르고 @Bean 메소드가 일종의 보너스 인 "라이트"로 간주됩니다. 예를 들어, 서비스 컴포넌트는 적용 가능한 각 컴포넌트 클래스에 대한 추가 @Bean 메소드를 통해 컨테이너에 관리 뷰를 노출 할 수 있습니다. 이러한 시나리오에서 @Bean 메서드는 범용 팩토리 메서드 메커니즘입니다.
-
-전체 @Configuration과 달리, 라이트 @Bean 메소드는 Bean 간 종속성을 선언 할 수 없습니다. 대신 포함하는 구성 요소의 내부 상태와 선택적으로 선언 할 수있는 인수에서 작동합니다. 따라서 이러한 @Bean 메서드는 다른 @Bean 메서드를 호출해서는 안됩니다. 이러한 각 메서드는 특별한 런타임 의미 체계없이 문자 그대로 특정 빈 참조에 대한 팩토리 메서드 일뿐입니다. 여기서 긍정적 인 부작용은 런타임에 CGLIB 서브 클래 싱을 적용 할 필요가 없기 때문에 클래스 디자인 측면에서 제한이 없다는 것입니다 (즉, 포함하는 클래스가 최종 클래스 일 수 있음).
-
-일반적인 시나리오에서 @Bean 메서드는 @Configuration 클래스 내에서 선언되어 "전체"모드가 항상 사용되고 교차 메서드 참조가 컨테이너의 수명주기 관리로 리디렉션되도록합니다. 이렇게하면 동일한 @Bean 메서드가 일반 Java 호출을 통해 실수로 호출되는 것을 방지하여 "라이트"모드에서 작동 할 때 추적하기 어려울 수있는 미묘한 버그를 줄이는 데 도움이됩니다.
-
 > `@Configuration` 이 선언되지 않은 클래스에서 `@Bean` 메서드가 선언되면 `lite` 한 모드에서 처리되는 것으로 인식된다.  
 예를 들어 서비스 컴포넌트는 적용 가능한 각 컴포넌트 클래스에 대한 라이트 `@Bean` 선언을 통해 컨테이너에 관리 뷰를 노출할 수 있다.  
 일반적인 `@Configuration` 내 `@Bean` 선언과 달리, 라이트 `@Bean` 메서드는 빈 간 종속성을 선언할 수 없다.  
@@ -517,3 +511,113 @@ public static void main(String[] args) {
     MyService myService = ctx.getBean(MyService.class);
 }
 ```
+
+`@Bean` 어노테이션으로 메서드 레벨에서 메서드가 반환하는 타입으로 빈 정의를 등록할 수 있는데, 이때 기본적으로 메서드의 이름이 빈의 이름이 된다.  
+
+```java
+@Configuration
+public class AppConfig {
+
+    @Bean
+    public TransferServiceImpl transferService() {
+        return new TransferServiceImpl();
+    }
+}
+```
+
+만약 아래와 같이 구현체를 인터페이스 타입으로 반환한다면, 빈 등록은 가능하지만 막상 해당 인터페이스에 여러 구현체가 존재할 경우 어떤 구현체를 빈으로 가질지 문제가 생길 수 있으니 가능하면 구체적인 구현체 타입으로 빈을 등록하는 것이 좋다.  
+
+```java
+@Configuration
+public class AppConfig {
+
+    @Bean
+    public TransferService transferService() {
+        return new TransferServiceImpl();
+    }
+}
+```
+
+`@Bean` 으로 정의된 클래스는 라이프사이클 콜백을 지원하고, JSR-250의 `@PostConstruct` 와 `@PreDestroy` 를 사용할 수 있다.  
+또한 다음과 같이 초기화 메서드와 소멸 메서드를 지정할 수도 있다.  
+
+```java
+public class BeanOne {
+
+    public void init() {
+        // initialization logic
+    }
+}
+
+public class BeanTwo {
+
+    public void cleanup() {
+        // destruction logic
+    }
+}
+
+@Configuration
+public class AppConfig {
+
+    @Bean(initMethod = "init")
+    public BeanOne beanOne() {
+        return new BeanOne();
+    }
+
+    @Bean(destroyMethod = "cleanup")
+    public BeanTwo beanTwo() {
+        return new BeanTwo();
+    }
+}
+```
+
+또 필요하다면 name 프로퍼티로 이름을 지정하거나, alias를 지정할 수 있고, `@Description` 을 통해 빈에 대한 설명도 작성할 수 있다.  
+
+`@Configuration` 메서드는 클래스 레벨에서 사용되며, `@Bean` 메서드를 통해 빈을 선언하는 역할을 한다.  
+
+```java
+@Configuration
+public class AppConfig {
+
+    @Bean
+    public BeanOne beanOne() {
+        return new BeanOne(beanTwo());
+    }
+
+    @Bean
+    public BeanTwo beanTwo() {
+        return new BeanTwo();
+    }
+}
+```
+
+> 위와 같이 메서드를 통한 빈 간 종속성 설정은 `@Configuration` 클래스 내의 `@Bean` 메서드끼리만 가능하다.  
+일반 `@Component` 클래스 내에서는 빈 간 종속성을 선언할 수 없다.
+
+```java
+@Configuration
+public class AppConfig {
+
+    @Bean
+    public ClientService clientService1() {
+        ClientServiceImpl clientService = new ClientServiceImpl();
+        clientService.setClientDao(clientDao());
+        return clientService;
+    }
+
+    @Bean
+    public ClientService clientService2() {
+        ClientServiceImpl clientService = new ClientServiceImpl();
+        clientService.setClientDao(clientDao());
+        return clientService;
+    }
+
+    @Bean
+    public ClientDao clientDao() {
+        return new ClientDaoImpl();
+    }
+}
+```
+
+만약 위와 같이 인터페이스 타입(ClientDao)을 서로 다른 두 메서드에서 사용하고 있다면 (싱글턴 스코프에서) 두 개의 인스턴스가 생성되어 문제가 될 것 같이 보인다.  
+실제로는 `@Configuration` 클래스는 시작 시 CGLIB를 사용하여 서브클래싱되고, 하위 클래스에서 자식 메서드는 부모 메서드를 호출하고 새 인스턴스를 만들기 전에 캐싱된 빈이 있는지 확인하기 때문에 문제가 발생하지 않는다.
