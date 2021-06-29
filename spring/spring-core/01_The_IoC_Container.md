@@ -753,3 +753,181 @@ public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata)
     return true;
 }
 ```
+
+## 환경 추상화
+
+`Environment` 인터페이스는 컨테이너 내에서 통합된 추상 개념이고, profiles와 properties라는 두 가지 중요한 관점을 가지고 있다.  
+
+profile은 주어진 프로파일에 따라 각각 등록되는 빈 정의들의 논리적 묶음이다.  
+profile과 관련된 `Environment` 객체의 역할은 현재 어떤 프로파일이 동작하고 있는지, 그리고 어떤 프로파일이 기본 설정으로 동작하도록 되어있는지를 결정하는 것이다.  
+
+properties는 거의 모든 애플리케이션에서 중요한 역할을 하고, 아마도 많은 소스(프로퍼티 파일, JVM 시스템 프로퍼티, 시스템 환경 변수, JNDI, 서블릿 컨텍스트 파라미터, 애드혹 프로퍼티 객체, 맵 객체 등)들의 기원이 되는 항목이다.  
+properties와 관련된 `Environment` 객체의 역할은 프로퍼티를 구성하고 적용함으로써 사용자에게 편리한 서비스 인터페이스를 제공하는 것이다.  
+
+### 빈 정의 프로파일
+
+빈 정의 프로파일은 코어 컨테이너에서 서로 다른 환경에 서로 다른 빈이 등록될 수 있는 매커니즘을 제공한다.  
+"환경"이라는 단어는 "서로 다른 사용자들을 위한 서로 다른 어떤 것"을 의미할 수 있는데, 이 기능은 다음과 같은 상황에 도움을 줄 수 있다.  
+
+- 개발 환경에서는 인메모리 데이터소스를 사용하는 반면 QA나 프로덕션 환경에서는 JNDI 데이터소스를 사용하는 것
+- 퍼포먼스 환경에 배포할 때만 모니터링 인프라스트럭처를 등록하는 것
+- AB 테스트 시 각각 서로 다른 빈들을 구성하는 것
+
+`DataSource` 의 예를 생각해보자.  
+테스트 환경에서는 다음과 같이 환경을 구성할 수 있을 것이다.  
+
+```java
+@Bean
+public DataSource dataSource() {
+    return new EmbeddedDatabaseBuilder()
+        .setType(EmbeddedDatabaseType.HSQL)
+        .addScript("my-schema.sql")
+        .addScript("my-test-data.sql")
+        .build();
+}
+```
+
+다음으로 QA나 프로덕션 환경에서는 데이터소스가 애플리케이션 서버 내 JNDI 디렉토리에 등록되어있다고 가정해보자.  
+
+```java
+@Bean(destroyMethod="")
+public DataSource dataSource() throws Exception {
+    Context ctx = new InitialContext();
+    return (DataSource) ctx.lookup("java:comp/env/jdbc/datasource");
+}
+```
+
+문제는 어떻게 현 환경에 맞게 두 개의 변수를 전환할 것인가이다.  
+빈 정의 프로파일은 이런 문제에 대한 해결책을 제공하는 핵심 컨테이너 기능이다.  
+위 사례를 일반화하자면 상황 A에서 빈 정의의 특정 프로파일을 등록하고, 상황 B에서는 다른 프로파일을 등록하고 싶다는 것으로 이야기할 수 있다.  
+
+`@Profile` 어노테이션은 컴포넌트가 활성화된 1개 혹은 그 이상의 프로파일들에 맞게 빈을 등록할 수 있도록 한다.  
+
+```java
+@Configuration
+@Profile("development")
+public class StandaloneDataConfig {
+
+    @Bean
+    public DataSource dataSource() {
+        return new EmbeddedDatabaseBuilder()
+            .setType(EmbeddedDatabaseType.HSQL)
+            .addScript("classpath:com/bank/config/sql/schema.sql")
+            .addScript("classpath:com/bank/config/sql/test-data.sql")
+            .build();
+    }
+}
+
+@Configuration
+@Profile("production")
+public class JndiDataConfig {
+
+    @Bean(destroyMethod="")
+    public DataSource dataSource() throws Exception {
+        Context ctx = new InitialContext();
+        return (DataSource) ctx.lookup("java:comp/env/jdbc/datasource");
+    }
+}
+```
+
+프로파일 문자열은 `!` , `&` , `|` 와 같은 연산자와 함께 구성할 수 있다.  
+
+또 다음과 같이 `@Profile` 어노테이션을 메타 어노테이션으로 활용해볼 수도 있다.  
+
+```java
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Profile("production")
+public @interface Production {
+}
+```
+
+`@Profile` 은 메서드 레벨에서도 등록할 수 있다.  
+
+```java
+@Configuration
+public class AppConfig {
+
+    @Bean("dataSource")
+    @Profile("development") 
+    public DataSource standaloneDataSource() {
+        return new EmbeddedDatabaseBuilder()
+            .setType(EmbeddedDatabaseType.HSQL)
+            .addScript("classpath:com/bank/config/sql/schema.sql")
+            .addScript("classpath:com/bank/config/sql/test-data.sql")
+            .build();
+    }
+
+    @Bean("dataSource")
+    @Profile("production") 
+    public DataSource jndiDataSource() throws Exception {
+        Context ctx = new InitialContext();
+        return (DataSource) ctx.lookup("java:comp/env/jdbc/datasource");
+    }
+}
+```
+
+이제 환경을 구성했으면, 스프링 애플리케이션을 프로파일에 맞게 실행시켜야 한다.  
+프로파일 활성화는 여러가지 방식으로 수행할 수 있지만, 가장 간단한 방법은 ApplicationContext를 통해 사용할 수 있는 `Environment` API에 대해 프로그래밍 방식으로 수행하는 것이다.  
+
+```java
+AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
+ctx.getEnvironment().setActiveProfiles("development");
+ctx.register(SomeConfig.class, StandaloneDataConfig.class, JndiDataConfig.class);
+ctx.refresh();
+```
+
+추가적으로, 활성화할 프로파일을 `[spring.profiles.active](http://spring.profiles.active)` 프로퍼티로 선언할 수 있다.  
+
+```java
+-Dspring.profiles.active="profile1,profile2"
+```
+
+마지막으로, 프로파일이 지정되지 않았을 때의 기본 프로파일은 다음과 같이 지정할 수 있다.  
+프로파일이 지정된 상황이라면 기본 프로파일은 적용되지 않는다.  
+
+```java
+@Configuration
+@Profile("default")
+public class DefaultDataConfig {
+
+    // ...
+}
+```
+
+### PropertySource 추상화
+
+스프링의 `Environment` 추상화는 프로퍼티 소스 계층 구조에 대한 검색을 제공한다.  
+
+```java
+ApplicationContext ctx = new GenericApplicationContext();
+Environment env = ctx.getEnvironment();
+boolean containsMyProperty = env.containsProperty("my-property");
+System.out.println("Does my environment contain the 'my-property' property? " + containsMyProperty);
+```
+
+위 예제에서 현재 환경에 my-property 속성이 정의되어 있는지 스프링에 물어볼 수 있다.  
+이를 답하기 위해 Environment 객체는 PropertySource 객체들의 집합에서 검색을 수행한다.  
+`PropertySource` 는 키-값 쌍으로 이루어진 단순한 추상이며, 스프링의 `StandardEnvironment` 는 두 개의 PropertySource(JVM 환경 프로퍼티, 시스템 환경 프로퍼티)로 구성된다.  
+결론적으로, `StandardEnvironment` 를 사용할 경우 `env.containsProperty("my-property")` 는 `my-property` 시스템 프로퍼티가 있거나 환경 변수가 있는 경우에 참을 반환할 것이다.  
+
+### @PropertySource 사용
+
+app.properties 파일에서 키-값 쌍을 정의한 경우 다음과 같이 해당 값을 가져올 수 있다.  
+
+```java
+@Configuration
+@PropertySource("classpath:/com/myco/app.properties")
+public class AppConfig {
+
+    @Autowired
+    Environment env;
+
+    @Bean
+    public TestBean testBean() {
+        TestBean testBean = new TestBean();
+        testBean.setName(env.getProperty("testbean.name"));
+        return testBean;
+    }
+}
+```
