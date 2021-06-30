@@ -931,3 +931,53 @@ public class AppConfig {
     }
 }
 ```
+
+## ApplicationContext의 추가 기능
+
+`org.springframework.beans.factory` 패키지는 프로그래밍 방식을 포함하여, 빈을 다루고 관리하는 기능을 제공한다.  
+`org.springframework.context` 패키지는 BeanFactory 인터페이스를 상속하고, 프레임워크-지향 방식의 추가적인 기능들을 제공하는 다른 인터페이스들도 상속한 ApplicationContext 인터페이스를 추가했다.  
+많은 사람들은 ApplicationContext를 프로그래밍 방식으로 생성하는 대신, ContextLoader와 같은 지원 클래스에 의존하여 자동으로 인스턴스화한다.  
+
+보다 프레임워크-지향 방식으로 BeanFactory의 기능을 향상시키기 위해 컨텍스트 패키지는 다음과 같은 기능도 제공한다.  
+
+- `MessageSource` 를 통한 i18n(internationalization)-스타일의 메시지 접근
+- `ResourceLoader` 를 통한 URL과 파일과 같은 리소스 접근
+- `ApplicationEventPublisher` 를 통한 이벤트 발행 ( `ApplicationListener` 를 구현한 빈들)
+- `HierarchicalBeanFactory` 인터페이스를 통해 애플리케이션의 웹 계층과 같은 특정 계층에 각각 집중할 수 있도록 여러 계층 구조 컨텍스트를 로딩
+
+### MessageSource를 통한 국제화
+
+ApplicationContext는 MessageSource 인터페이스를 확장하고 있기 때문에 i18n 메세징 기능을 제공할 수 있다.  
+
+- `String getMessage(String code, Object[] args, String default, Locale loc)`
+    - 가장 기본이 되는 메서드로, MessageSource로부터 메시지를 조회한다.
+    - 적절한 지역이 없으면 기본 메시지를 사용한다.
+    - 라이브러리에 의해 제공되는 MessageFormat 기능을 사용해서 어떤 인자든 대체 값으로 넣어줄 수 있다.
+- `String getMessage(String code, Object[] args, Locale loc)`
+    - 위 메서드와 같으나 기본 메시지가 없어서, 적절한 지역 메시지가 없는 경우 NoSuchMessageException을 던진다.
+- `String getMessage(MessageSourceResolvable resolvable, Locale locale)`
+    - 위에서 사용된 모든 속성이 MessageSourceResolvable로 묶여서 사용된다.
+
+ApplicationContext가 로딩될 때, 컨텍스트에 정의된 MessageSource를 자동으로 찾는다.  
+그 빈은 반드시 이름이 `messageSource` 여야만 한다.  
+빈을 찾으면, 위의 메서드를 통한 모든 호출은 메시지 소스로 위임된다.  
+메시지 소스 빈이 없으면, ApplicationContext는 해당 빈의 이름을 가진 부모가 있는지 찾기 시작한다.  
+만약 ApplicationContext가 아무 빈도 찾지 못한다면 비어있는 DeligatingMessageSource가  인스턴스화된다.  
+
+```java
+public static void main(String[] args) {
+    MessageSource resources = new ClassPathXmlApplicationContext("beans.xml");
+    String message = resources.getMessage("message", null, "Default", Locale.ENGLISH);
+    System.out.println(message);
+}
+```
+
+### 표준 이벤트와 커스텀 이벤트
+
+### 낮은 수준의 리소스에 대한 편리한 접근
+
+### 애플리케이션 시작 추적
+
+## BeanFactory
+
+### BeanFactory or ApplicationContext?
