@@ -877,7 +877,7 @@ ctx.register(SomeConfig.class, StandaloneDataConfig.class, JndiDataConfig.class)
 ctx.refresh();
 ```
 
-추가적으로, 활성화할 프로파일을 `[spring.profiles.active](http://spring.profiles.active)` 프로퍼티로 선언할 수 있다.  
+추가적으로, 활성화할 프로파일을 `spring.profiles.active` 프로퍼티로 선언할 수 있다.  
 
 ```java
 -Dspring.profiles.active="profile1,profile2"
@@ -973,6 +973,165 @@ public static void main(String[] args) {
 ```
 
 ### 표준 이벤트와 커스텀 이벤트
+
+ApplicationContext 의 이벤트 핸들링은 ApplicationEvent 클래스와 ApplicationListener 인터페이스에 의해 제공된다.  
+만약 빈이 ApplicationListener 인터페이스를 구현하고 컨텍스트 내에 존재한다면, 항상 ApplicationEvent가 ApplicationContext에 발행될 때마다 빈에 알림이 전송된다.  
+
+스프링에서 제공하는 표준 이벤트는 다음과 같다.  
+
+- ContextRefreshedEvent
+- ContextStartedEvent
+- ContextStoppedEvent
+- ContextClosedEvent
+- RequestHandledEvent
+- ServletRequestHandledEvent
+
+커스텀 이벤트를 만들 수도 있다.  
+
+```java
+public class BlockedListEvent extends ApplicationEvent {
+
+    private final String address;
+    private final String content;
+
+    public BlockedListEvent(Object source, String address, String content) {
+        super(source);
+        this.address = address;
+        this.content = content;
+    }
+
+    // ...
+}
+```
+
+ApplicationEvent를 발행하기 위해서는, ApplicationEventPublisher의 publishEvent() 메서드를 호출하면 된다.  
+전형적으로 이는 ApplicationEventPublisherAware 를 구현한 클래스를 생성하고 빈으로 등록함으로써 수행된다.  
+
+```java
+public class EmailService implements ApplicationEventPublisherAware {
+
+    private List<String> blockedList;
+    private ApplicationEventPublisher publisher;
+
+    public void setBlockedList(List<String> blockedList) {
+        this.blockedList = blockedList;
+    }
+
+    public void setApplicationEventPublisher(ApplicationEventPublisher publisher) {
+        this.publisher = publisher;
+    }
+
+    public void sendEmail(String address, String content) {
+        if (blockedList.contains(address)) {
+            publisher.publishEvent(new BlockedListEvent(this, address, content));
+            return;
+        }
+        // 이메일 전송
+    }
+}
+```
+
+스프링 컨테이너는 ApplicationEventPublisherAware를 구현한 EmailService 를 찾아서, setter를 통해 자기 자신을 주입한다.  
+이 과정에서 ApplicationEventPublisher 인터페이스를 통해 애플리케이션 컨텍스트와 소통할 수 있게 된다.  
+
+커스텀 ApplicationEvent를 받기 위해서는, ApplicationListener 를 구현한 클래스를 생성하고 스프링 빈으로 등록하면 된다.  
+
+```java
+public class BlockedListNotifier implements ApplicationListener<BlockedListEvent> {
+
+    private String notificationAddress;
+
+    public void setNotificationAddress(String notificationAddress) {
+        this.notificationAddress = notificationAddress;
+    }
+
+    public void onApplicationEvent(BlockedListEvent event) {
+        // notificationAddress를 통해 적절한 알림 발송
+    }
+}
+```
+
+ApplicationListener는 일반적으로 사용자가 지정한 타입으로 제네릭화된다.  
+즉, onApplicationEvent() 메서드는 다운 캐스팅이 필요하지 않고 타입 안전하게 유지될 수 있다.  
+
+원하는 만큼 이벤트 리스너를 등록할 수 있지만 기본적으로 이벤트 리스너는 이벤트를 동기식으로 수신한다.  
+즉, 모든 리스너가 이벤트 처리를 완료할 때까지 publishEvent() 메서드가 차단된다.  
+이런 동기 및 단일 스레드 방식의 장점 중 하나는 리스너가 이벤트를 수신할 때 트랜잭션 컨텍스트를 사용할 수 있는 경우 발행한 곳의 트랜잭션 컨텍스트 내에서 작동한다는 점이다.  
+이벤트 수신에 대한 다른 전략이 필요하면 ApplicationEventMulticaster, SimpleApplicationEventMulticaster를 참고하면 된다.  
+
+어노테이션 기반으로도 리스너를 등록할 수 있다.  
+다음과 같은 경우 인터페이스를 구현할 필요도 없고, 메서드 이름도 자유로워진다.  
+
+```java
+public class BlockedListNotifier {
+
+    private String notificationAddress;
+
+    public void setNotificationAddress(String notificationAddress) {
+        this.notificationAddress = notificationAddress;
+    }
+
+    @EventListener
+    public void processBlockedListEvent(BlockedListEvent event) {
+        // notificationAddress를 통해 적절한 알림 발송
+    }
+}
+```
+
+여러 개의 이벤트를 수신해야하거나 파라미터 없이 메서드를 정의하고 싶은 경우는 다음과 같이 지정할 수도 있다.  
+
+```java
+@EventListener({ContextStartedEvent.class, ContextRefreshedEvent.class})
+public void handleContextStart() {
+    // ...
+}
+```
+
+이벤트 수신 후 또 다른 이벤트를 발행해야 한다면, 다음과 같이 반환값으로 이벤트를 줄 수도 있다.  
+
+```java
+@EventListener
+public ListUpdateEvent handleBlockedListEvent(BlockedListEvent event) {
+    // notificationAddress를 통해 적절한 알림 발송
+    // 그리고 ListUpdateEvent 발행
+}
+```
+
+특정 리스너가 비동기적으로 이벤트를 받아서 작업해야 한다면 다음과 같은 어노테이션을 사용할 수 있다.  
+
+```java
+@EventListener
+@Async
+public void processBlockedListEvent(BlockedListEvent event) {
+    // BlockedListEvent가 별도의 스레드에서 수행된다.
+}
+```
+
+비동기 이벤트는 다음과 같은 특징이 있으니 주의해야 한다.  
+
+- 만약 비동기 이벤트 리스너가 예외를 던진다면, 이는 요청자에게까지 전파되지 않는다.
+- 비동기 이벤트 리스너 메서드는 반환 값으로 다른 이벤트를 주어 새로운 이벤트를 발행할 수 없다.  
+만약 다른 이벤트를 이어서 발행해야 한다면 수동으로 이벤트를 발행하기 위해 ApplicationEventPublisher를 주입해야 한다.
+
+이벤트 리스너 간 순서를 지정할 수도 있다.  
+
+```java
+@EventListener
+@Order(42)
+public void processBlockedListEvent(BlockedListEvent event) {
+    // notificationAddress를 통해 적절한 알림 발송
+}
+```
+
+제네릭을 사용하여 이벤트 구조를 추가로 정의할 수도 있다.  
+다음과 같이 `EventCreatedEvent<T>` 를 사용하면 생성되는 엔티티의 타입을 지정하여, Person에 대한 EntityCreatedEvent만 수신할 수 있다.  
+
+```java
+@EventListener
+public void onPersonCreated(EntityCreatedEvent<Person> event) {
+    // ...
+}
+```
 
 ### 낮은 수준의 리소스에 대한 편리한 접근
 
