@@ -1135,8 +1135,26 @@ public void onPersonCreated(EntityCreatedEvent<Person> event) {
 
 ### 낮은 수준의 리소스에 대한 편리한 접근
 
-### 애플리케이션 시작 추적
+애플리케이션 컨텍스트는 Resource 객체를 로드할 수 있는 ResourceLoader이다.  
+Resource는 JDK의 `java.net.URL` 클래스보다 더 본질적으로 많은 기능을 제공하는 클래스이며, 사실 Resource 구현체가 URL 클래스를 감싸고 있다.  
+Resource는 클래스패스, 파일 시스템, 표준 URL 등 거의 모든 위치에 있는 낮은 수준의 리소스를 얻을 수 있다.  
+만약 리소스의 위치 정보가 아무런 접두사 없이 사용되었다면, 애플리케이션 컨텍스트의 타입을 보고 적절한 리소스를 불러온다.  
+
+당신은 빈 초기화 시점에 애플리케이션 컨텍스트를 ResourceLoader로 주입 받아서 사용하기 위해 ResourceLoaderAware를 사용할 수 있다.  
+또한 정적 리소스에 접근하기 위해 Resource 타입 속성을 노출할 수도 있으며, 이는 다른 속성과 마찬가지로 주입될 것이다.  
+이러한 리소스 속성을 간단한 문자열 경로로 지정하고 빈이 배포될 때 실제 리소스 객체로 자동 변환되는 것을 기대할 수 있다.  
 
 ## BeanFactory
 
 ### BeanFactory or ApplicationContext?
+
+특별한 이유가 없는 한 BeanFactory 대신 ApplicationContext를 사용해야 한다.  
+ApplicationContext는 BeanFactory의 모든 기능을 포함하기 때문에 일반적으로 빈 처리에 대한 완전한 제어가 필요하지 않은 이상 BeanFactory보다 권장된다.  
+
+다음은 BeanFactory에서는 제공하지 않지만 ApplicationContext에서 제공하는 기능들이다.  
+
+- 통합 라이프사이클 관리
+- 자동 BeanPostProcessor 등록
+- 자동 BeanFactoryPostProcessor 등록
+- 편리한 MessageSource 접근
+- 내재된 ApplicationEvent 발행 메커니즘
