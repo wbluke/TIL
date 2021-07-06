@@ -559,4 +559,170 @@ public interface FormatterRegistrar {
 }
 ```
 
-FormatterRegistrar는 날짜 형식과 같은 포맷팅 카테고리에 대해 여러 관련된 converter와 formatter를 등록할 때 유용하다.
+FormatterRegistrar는 날짜 형식과 같은 포맷팅 카테고리에 대해 여러 관련된 converter와 formatter를 등록할 때 유용하다.  
+
+## 전역 날짜와 시간 포맷 설정
+
+기본적으로 `@DateTimeFormat` 을 사용하지 않은 날짜와 시간은 DateFormat.SHORT를 사용하여 문자열로 변환된다.  
+원하는 경우 전역 포맷을 지정하여 변경할 수 있다.  
+그렇게 하려면, 스프링이 기본 포맷터를 등록하지 않음을 보장해야 한다.  
+다음 클래스의 도움을 받으면 된다.  
+
+- org.springframework.format.datetime.standard.DateTimeFormatterRegistrar
+- org.springframework.format.datetime.DateFormatterRegistrar
+
+아래 예제는 전역적인 `yyyyMMdd` 포맷을 등록하는 설정 예제이다.  
+
+```java
+@Configuration
+public class AppConfig {
+
+    @Bean
+    public FormattingConversionService conversionService() {
+
+        // DefaultFormattingConversionService 사용, 기본 등록은 제외
+        DefaultFormattingConversionService conversionService = new DefaultFormattingConversionService(false);
+
+        // @NumberFormat 지원은 보장
+        conversionService.addFormatterForFieldAnnotation(new NumberFormatAnnotationFormatterFactory());
+
+        // 특정 전역 포맷을 사용한 JSR-310 날짜 변환 등록
+        DateTimeFormatterRegistrar registrar = new DateTimeFormatterRegistrar();
+        registrar.setDateFormatter(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        registrar.registerFormatters(conversionService);
+
+        // 특정 전역 포맷을 사용한 날짜 변환 등록
+        DateFormatterRegistrar registrar = new DateFormatterRegistrar();
+        registrar.setFormatter(new DateFormatter("yyyyMMdd"));
+        registrar.registerFormatters(conversionService);
+
+        return conversionService;
+    }
+}
+```
+
+## 자바 빈 유효성 검사
+
+### 빈 유효성 검사 개요
+
+빈 유효성 검사는 제약 선언과 메타 데이터를 통한 일반적인 유효성 검사를 제공한다.  
+이를 사용하려면, 도메인 모델 속성에 런타임 시점에 동작하는 유효성 검사 제약을 선언하면 된다.  
+기본 제공되는 제약도 있고, 커스텀하게 지정할 수도 있다.  
+
+예를 들어 빈 유효성 검사를 제공한 PersonForm 클래스는 다음과 같다.  
+
+```java
+public class PersonForm {
+
+    @NotNull
+    @Size(max=64)
+    private String name;
+
+    @Min(0)
+    private int age;
+}
+```
+
+### 빈 유효성 검사 제공자 구성
+
+스프링은 빈 유효성 검사 제공자를 포함한 빈 유효성 검사 API를 전격 지원한다.  
+`javax.validation.ValidatorFactory` 또는 `javax.validation.Validator` 를 주입해서 사용할 수 있다.  
+
+기본 Validator를 스프링 빈으로 구성하기 위해 LocalValidatorFactoryBean을 사용할 수 있다.  
+
+```java
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+
+@Configuration
+public class AppConfig {
+
+    @Bean
+    public LocalValidatorFactoryBean validator() {
+        return new LocalValidatorFactoryBean();
+    }
+}
+```
+
+LocalValidatorFactoryBean은 `javax.validation.ValidatorFactory` 와 `javax.validation.Validator` 를 구현하고, 스프링의 `org.springframework.validation.Validator` 도 구현한다.  
+유효성 검사 로직이 필요한 빈에 이러한 인터페이스 중 하나에 대한 참조를 주입할 수 있다.  
+
+빈 유효성 검사 API 사용을 원한다면, `javax.validation.Validator` 를 주입받을 수 있다.  
+
+```java
+import javax.validation.Validator;
+
+@Service
+public class MyService {
+
+    @Autowired
+    private Validator validator;
+}
+```
+
+스프링 유효성 검사 API가 필요한 빈이라면, `org.springframework.validation.Validator` 를 주입할 수도 있다.  
+
+```java
+import org.springframework.validation.Validator;
+
+@Service
+public class MyService {
+
+    @Autowired
+    private Validator validator;
+}
+```
+
+각각의 빈 유효성 검사는 다음 2가지로 구성된다.  
+
+- 제약과 그 속성값을 선언하는 `@Constraint` 어노테이션
+- 제약의 행동을 구현하는 `javax.validation.ConstraintValidator` 구현체
+
+선언을 구현부와 연결하기 위해 @Constraint 어노테이션은 해당하는 ConstraintValidator 구현체를 참조한다.  
+런타임 시 ConstraintValidatorFactory는 도메인 모델에서 해당 어노테이션이 발견될 때 참조된 구현체를 인스턴스화한다.  
+
+기본적으로 LocalValidatorFactoryBean은 스프링을 사용하여 ConstraintValidator 인스턴스를 만드는 SpringConstraintValidatorFactory를 구성한다.  
+이렇게 하면 커스텀 ConstraintValidators가 다른 스프링 빈과 마찬가지로 의존성 주입의 이점을 얻을 수 있다.  
+
+```java
+@Target({ElementType.METHOD, ElementType.FIELD})
+@Retention(RetentionPolicy.RUNTIME)
+@Constraint(validatedBy=MyConstraintValidator.class)
+public @interface MyConstraint {
+}
+```
+
+```java
+import javax.validation.ConstraintValidator;
+
+public class MyConstraintValidator implements ConstraintValidator {
+
+    @Autowired;
+    private Foo aDependency;
+
+    // ...
+}
+```
+
+### DataBinder 설정
+
+스프링3 부터, Validator와 함께 DataBinder 인스턴스를 구성할 수 있다.  
+구성한 후 binder.validate() 메서드를 호출하여 Validator를 사용할 수 있다.  
+발생한 유효성 에러는 binder의 BindingResult에 추가된다.  
+
+```java
+Foo target = new Foo();
+DataBinder binder = new DataBinder(target);
+binder.setValidator(new FooValidator());
+
+// 타겟 객체 바인딩
+binder.bind(propertyValues);
+
+// 타겟 객체 유효성 검사
+binder.validate();
+
+// 유효성 에러를 가진 BindingResult
+BindingResult results = binder.getBindingResult();
+```
+
+dataBinder.addValidators(), dataBinder.replaceValidators() 를 사용하여 다수의 Validator 인스턴스를 등록할 수도 있다.  
+이는 전역적으로 구성된 빈 유효성 검사를 DataBinder 인스턴스에 로컬로 구성된 스프링 Validator와 결합할 때 유용하다.
