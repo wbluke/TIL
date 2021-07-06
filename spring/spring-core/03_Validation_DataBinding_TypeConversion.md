@@ -171,3 +171,392 @@ public final class CustomPropertyEditorRegistrar implements PropertyEditorRegist
     }
 }
 ```
+
+## 스프링 타입 변환
+
+스프링3에서는 타입 변환을 위한 `core.convert` 패키지가 소개되었다.  
+스프링 컨테이너 내에서 이 시스템을 PropertyEditor 구현의 대안으로 사용하여 빈 속성 값 문자열을 필수 타입으로 변환할 수 있다.  
+
+### Converter SPI
+
+타입 변환을 구현하는 SPI는 간단하고 강력한 형식이다.  
+
+```java
+package org.springframework.core.convert.converter;
+
+public interface Converter<S, T> {
+
+    T convert(S source);
+}
+```
+
+Converter를 만들고 싶다면, Converter 인터페이스를 구현하고 변환 전 타입인 S와 변환할 타입인 T를 지정해주면 된다.  
+마찬가지로 S 배열을 컬렉션 T로 변환하고 싶은 경우에도, Converter를 적용할 수 있다.  
+
+`convert(S)` 호출 시 인자인 S는 null이 아님이 보장되어야만 한다.  
+Converter는 변환 실패 시 언체크 예외를 던질 것이다.  
+특별히, 유효하지 않은 값에 대해서는 IllegalArgumentException을 던져야 한다.  
+또한 Converter는 항상 스레드 안전해야함을 명심하자.  
+
+`core.convert.support` 패키지에 있는 여러 컨버터도 편의를 위해 제공된다.  
+예를 들어 StringToInteger 같은 경우는 다음과 같다.  
+
+```java
+package org.springframework.core.convert.support;
+
+final class StringToInteger implements Converter<String, Integer> {
+
+    public Integer convert(String source) {
+        return Integer.valueOf(source);
+    }
+}
+```
+
+### ConverterFactory 사용
+
+만약 계층 구조의 전체 클래스를 대상으로 변환 로직을 중앙화하고 싶은 경우, ConverterFactory를 사용할 수 있다.  
+
+```java
+package org.springframework.core.convert.converter;
+
+public interface ConverterFactory<S, R> {
+
+    <T extends R> Converter<S, T> getConverter(Class<T> targetType);
+}
+```
+
+S는 변환하기 전 타입, R은 변환하고자 하는 클래스의 범위(range)를 지정하면 된다.  
+`getConverter(Class<T>)` 의 T는 R의 서브클래스이다.  
+
+StringToEnumConverterFactory 예시는 다음과 같다.  
+
+```java
+package org.springframework.core.convert.support;
+
+final class StringToEnumConverterFactory implements ConverterFactory<String, Enum> {
+
+    public <T extends Enum> Converter<String, T> getConverter(Class<T> targetType) {
+        return new StringToEnumConverter(targetType);
+    }
+
+    private final class StringToEnumConverter<T extends Enum> implements Converter<String, T> {
+
+        private Class<T> enumType;
+
+        public StringToEnumConverter(Class<T> enumType) {
+            this.enumType = enumType;
+        }
+
+        public T convert(String source) {
+            return (T) Enum.valueOf(this.enumType, source.trim());
+        }
+    }
+}
+```
+
+### GenericConverter 사용
+
+만약 정교한 Converter 구현체가 필요하다면, GenericConverter 인터페이스를 고려해보면 좋다.  
+유연하지만 강한 타입은 아닌 Converter 대신, GenericConverter는 여러 개의 소스와 타겟 간 타입 변환을 지원한다.  
+
+```java
+package org.springframework.core.convert.converter;
+
+public interface GenericConverter {
+
+    public Set<ConvertiblePair> getConvertibleTypes();
+
+    Object convert(Object source, TypeDescriptor sourceType, TypeDescriptor targetType);
+}
+```
+
+GenericConverter를 구현하면, `getConvertibleTypes()` 는 지원하는 소스 → 타겟 타입 페어를 반환한다.  
+`convert(Object, TypeDescriptor, TypeDescriptor)` 에는 변환 로직을 구현하면 된다.  
+
+GenericConverter의 좋은 예시는 자바의 배열과 컬렉션 간 변환이다.  
+ArrayToCollectionConverter는 소스 배열이 타겟 컬렉션으로 변환되도록 해준다.  
+
+> GenericConverter는 좀 더 복잡한 SPI 인터페이스이기 때문에, 꼭 필요할 때만 사용하면 된다.  
+보통은 Converter나 ConverterFactory로 사용한다.
+
+가끔은, Converter가 특정 조건에서만 작동하기를 바라는 경우가 있다.  
+예를 들어, 어떤 타겟 필드에 특정 어노테이션이 붙어있을 때에만 변환하기를 바라거나, 어떤 클래스에 특정 메서드가 구현되어 있을 경우에만 변환하기를 바랄 수 있다.  
+ConditionalGenericConverter는 이러한 것들을 가능하게 하는 GenericConverter와 ConditionalConverter 인터페이스의 조합이다.  
+
+```java
+public interface ConditionalConverter {
+
+    boolean matches(TypeDescriptor sourceType, TypeDescriptor targetType);
+}
+
+public interface ConditionalGenericConverter extends GenericConverter, ConditionalConverter {
+}
+```
+
+ConditionalGenericConverter의 좋은 예시는 영속화된 엔티티의 식별자와 엔티티 참조 간을 변환하는 IdToEntityConverter이다.  
+IdToEntityConverter는 타겟 엔티티 타입이 정적 finder 메서드를 선언한 경우에만 변환을 진행한다.  
+
+### ConversionService API
+
+ConversionService는 런타임에 타입 변환을 실행하기 위한 통합 API를 제공한다.  
+
+```java
+package org.springframework.core.convert;
+
+public interface ConversionService {
+
+    boolean canConvert(Class<?> sourceType, Class<?> targetType);
+
+    <T> T convert(Object source, Class<T> targetType);
+
+    boolean canConvert(TypeDescriptor sourceType, TypeDescriptor targetType);
+
+    Object convert(Object source, TypeDescriptor sourceType, TypeDescriptor targetType);
+}
+```
+
+대부분의 ConversionService 구현체는 ConverterRegistry도 구현하는데, converter를 등록하기 위한 SPI를 제공하기 위해서이다.  
+내부적으로 ConversionService 구현체는 타입 변환 로직을 등록된 converter에 위임한다.  
+
+ConversionService는 `core.convert.support` 패키지에서 제공된다.  
+GenericConversionService는 대부분의 환경에서 사용되기 위한 일반적인 목적의 구현체이다.  
+ConversionServiceFactory는 ConversionService를 생성하기 위한 편리한 팩토리를 제공한다.  
+
+### ConversionService 구성
+
+ConversionService는 애플리케이션 시작 시 초기화되고, 여러 스레드에 의해 공유되도록 만들어진 무상태 객체이다.  
+스프링 애플리케이션에서는 전형적으로 스프링 컨테이너마다 ConversionService를 구성해야 한다.  
+스프링은 프레임워크에 의한 타입 변환이 필요한 경우 ConversionService를 사용한다.  
+또한 ConversionService를 빈에 직접 주입해서 사용할 수도 있다.  
+
+> 만약 어떤 ConversionService도 스프링에 등록되지 않는다면, 기존의 PropertyEditor 기반 시스템이 사용된다.
+
+### 프로그래밍 방식으로 ConversionService 사용
+
+ConversionService를 프로그래밍 방식으로 사용하고자 한다면, 다음과 같이 빈에 주입해서 사용할 수 있다.  
+
+```java
+@Service
+public class MyService {
+
+    public MyService(ConversionService conversionService) {
+        this.conversionService = conversionService;
+    }
+
+    public void doIt() {
+        this.conversionService.convert(...)
+    }
+}
+```
+
+대부분의 경우 타겟 타입으로의 변환을 위해 `convert()` 메서드를 사용하겠지만, 이는 매개변수화된 컬렉션과 같은 복잡한 타입에서는 동작하지 않는다.  
+예를 들어 정수 리스트를 문자열 리스트로 변환하고자 할 때, 소스와 타겟 타입에 대한 정의가 필요하다.  
+
+다행히도, TypeDescriptor는 이런 상황을 해결할 수 있는 옵션을 제공한다.  
+
+```java
+DefaultConversionService cs = new DefaultConversionService();
+
+List<Integer> input = ...
+cs.convert(input,
+    TypeDescriptor.forObject(input), // List<Integer> type descriptor
+    TypeDescriptor.collection(List.class, TypeDescriptor.valueOf(String.class)));
+```
+
+DefaultConversionService는 대부분의 환경에 적합한 converter를 자동으로 등록한다.  
+여기에는 컬렉션 converter, 스칼라 converter 및 기본 Object-String converter가 포함된다.  
+DefaultConversionService 클래스에서 정적 addDefaultConverters 메서드를 사용하여 ConverterRegistry에 converter를 등록 할 수 있다.  
+
+## 스프링 필드 포맷팅
+
+이제 웹이나 데스크탑 환경과 같은 일반적인 클라이언트 환경에서의 타입 변환을 생각해 보자.  
+이런 환경에서는, 문자열을 필요한 타입으로 변환하고, 다시 뷰 렌터링을 위해 문자열로 변환하기도 한다.  
+Converter SPI는 이러한 형식 요구 사항을 직접 해결하지 않는다.  
+이를 해결하기 위해 스프링 3은 클라이언트 환경을 위한 PropertyEditor 구현체의 강력한 대안으로 편리한 Formatter SPI를 도입했다.  
+
+일반적으로 범용적인 목적의 타입 변환 로직(예를 들어, `java.util.Date` 와 Long 간 변환)을 구현해야 할 때 Converter SPI를 사용할 수 있다.  
+그리고 클라이언트 환경에서 작업하고 현지화된 필드 값을 파싱하고 출력해야 하는 경우 Formatter SPI를 사용할 수 있다.  
+ConversionService는 두 SPI에 대한 통합 타입 API를 제공한다.  
+
+### Formatter SPI
+
+Formatter SPI는 간단하고 강력한 포맷팅 로직을 제공한다.  
+
+```java
+package org.springframework.format;
+
+public interface Formatter<T> extends Printer<T>, Parser<T> {
+}
+```
+
+Formatter는 Printer와 Parser를 확장한다.  
+
+```java
+public interface Printer<T> {
+
+    String print(T fieldValue, Locale locale);
+}
+```
+
+```java
+import java.text.ParseException;
+
+public interface Parser<T> {
+
+    T parse(String clientValue, Locale locale) throws ParseException;
+}
+```
+
+Formatter를 만들려면, Formatter 인터페이스를 구현한다.  
+매개변수 T는 Date와 같이 포맷팅하려는 타입 객체이다.  
+print() 메서드는 T를 클라이언트 환경에 보여주기 위한 메서드이고, parse() 메서드는 반대로 포맷팅된 표현을 T 타입 인스턴스로 변환하기 위한 메서드이다.  
+파싱에 실패하면 ParseException이나 IllegalArgumentException을 던져야 한다.  
+Formatter 구현체는 스레드 안전해야 함을 명심하자.  
+
+DateFormatter의 예시는 다음과 같다.  
+
+```java
+package org.springframework.format.datetime;
+
+public final class DateFormatter implements Formatter<Date> {
+
+    private String pattern;
+
+    public DateFormatter(String pattern) {
+        this.pattern = pattern;
+    }
+
+    public String print(Date date, Locale locale) {
+        if (date == null) {
+            return "";
+        }
+        return getDateFormat(locale).format(date);
+    }
+
+    public Date parse(String formatted, Locale locale) throws ParseException {
+        if (formatted.length() == 0) {
+            return null;
+        }
+        return getDateFormat(locale).parse(formatted);
+    }
+
+    protected DateFormat getDateFormat(Locale locale) {
+        DateFormat dateFormat = new SimpleDateFormat(this.pattern, locale);
+        dateFormat.setLenient(false);
+        return dateFormat;
+    }
+}
+```
+
+### 어노테이션 기반 포맷팅
+
+필드 포맷팅은 필트 타입이나 어노테이션으로 구성될 수 있다.  
+어노테이션을 Formatter로 바인딩하려면, AnnotationFormatterFactory를 구현한다.  
+
+```java
+package org.springframework.format;
+
+public interface AnnotationFormatterFactory<A extends Annotation> {
+
+    Set<Class<?>> getFieldTypes();
+
+    Printer<?> getPrinter(A annotation, Class<?> fieldType);
+
+    Parser<?> getParser(A annotation, Class<?> fieldType);
+}
+```
+
+구현체를 만들려면, 매개변수 A에 포맷팅 로직과 관련시킬 어노테이션 타입을 적용하면 된다. (예 : DateTimeFormat)  
+그리고 getPrinter(), getParser() 각 메서드에서 필요한 Printer와 Parser를 반환하도록 구현하면 된다.  
+
+다음 예시는 `@NumberFormat` 어노테이션에 대한 AnnotationFormatterFactory 구현체이다.  
+
+```java
+public final class NumberFormatAnnotationFormatterFactory
+        implements AnnotationFormatterFactory<NumberFormat> {
+
+    public Set<Class<?>> getFieldTypes() {
+        return new HashSet<Class<?>>(asList(new Class<?>[] {
+            Short.class, Integer.class, Long.class, Float.class,
+            Double.class, BigDecimal.class, BigInteger.class }));
+    }
+
+    public Printer<Number> getPrinter(NumberFormat annotation, Class<?> fieldType) {
+        return configureFormatterFrom(annotation, fieldType);
+    }
+
+    public Parser<Number> getParser(NumberFormat annotation, Class<?> fieldType) {
+        return configureFormatterFrom(annotation, fieldType);
+    }
+
+    private Formatter<Number> configureFormatterFrom(NumberFormat annotation, Class<?> fieldType) {
+        if (!annotation.pattern().isEmpty()) {
+            return new NumberStyleFormatter(annotation.pattern());
+        } else {
+            Style style = annotation.style();
+            if (style == Style.PERCENT) {
+                return new PercentStyleFormatter();
+            } else if (style == Style.CURRENCY) {
+                return new CurrencyStyleFormatter();
+            } else {
+                return new NumberStyleFormatter();
+            }
+        }
+    }
+}
+```
+
+다음과 같은 형식으로 사용 가능하다.  
+
+```java
+public class MyModel {
+
+    @NumberFormat(style=Style.CURRENCY)
+    private BigDecimal decimal;
+
+    @DateTimeFormat(iso=ISO.DATE)
+    private Date date;
+}
+```
+
+### FormatterRegistry SPI
+
+FormatterRegistry는 formatter와 converter를 등록하기 위한 SPI이다.  
+FormatterConversionService는 대부분의 환경에서 사용하기 적합한 FormatterRegistry 구현체이다.  
+
+```java
+package org.springframework.format;
+
+public interface FormatterRegistry extends ConverterRegistry {
+
+    void addPrinter(Printer<?> printer);
+
+    void addParser(Parser<?> parser);
+
+    void addFormatter(Formatter<?> formatter);
+
+    void addFormatterForFieldType(Class<?> fieldType, Formatter<?> formatter);
+
+    void addFormatterForFieldType(Class<?> fieldType, Printer<?> printer, Parser<?> parser);
+
+    void addFormatterForFieldAnnotation(AnnotationFormatterFactory<? extends Annotation> annotationFormatterFactory);
+}
+```
+
+FormatterRegistry SPI를 사용하면 컨트롤러 전체에 중복 설정을 하는 대신, 포맷팅 규칙을 중앙화할 수 있다.  
+예를 들어 모든 날짜 필드가 특정 방식으로 포맷팅되거나 특정 어노테이션이 있는 필드가 특정 방식으로 포맷팅되도록 할 수 있다.  
+
+### FormatterRegistrar SPI
+
+FormatterRegistrar는 FormatterRegistry를 통해 formatter 및 converter를 등록하기 위한 SPI이다.  
+
+```java
+package org.springframework.format;
+
+public interface FormatterRegistrar {
+
+    void registerFormatters(FormatterRegistry registry);
+}
+```
+
+FormatterRegistrar는 날짜 형식과 같은 포맷팅 카테고리에 대해 여러 관련된 converter와 formatter를 등록할 때 유용하다.
