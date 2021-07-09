@@ -157,3 +157,300 @@ public class MovieRecommender {
     // ...
 }
 ```
+
+## Language 문서
+
+### 리터럴 표현식
+
+리터럴 표현식은 문자열, 숫자값, boolean값 그리고 null을 지원한다.  
+문자열은 홑따옴표로 구분된다.  
+
+```java
+ExpressionParser parser = new SpelExpressionParser();
+
+// "Hello World"로 평가
+String helloWorld = (String) parser.parseExpression("'Hello World'").getValue();
+
+double avogadrosNumber = (Double) parser.parseExpression("6.0221415E+23").getValue();
+
+// 2147483647로 평가
+int maxValue = (Integer) parser.parseExpression("0x7FFFFFFF").getValue();
+
+boolean trueValue = (Boolean) parser.parseExpression("true").getValue();
+
+Object nullValue = parser.parseExpression("null").getValue();
+```
+
+숫자는 음수 표기, 지수 표기, 소수점 표기를 지원한다.  
+기본적으로 실수는 Double.parseDouble()로 파싱된다.  
+
+### 속성 값, 배열, 리스트, 맵, 그리고 인덱서
+
+속성 참조를 탐색하는 것은 쉽다.  
+마침표를 통해 내부 속성 값을 조회할 수 있다.  
+
+```java
+int year = (Integer) parser.parseExpression("birthdate.year + 1900").getValue(context);
+
+String city = (String) parser.parseExpression("placeOfBirth.city").getValue(context);
+```
+
+> 참고로 `PlaceOfBirth.city` 처럼  첫글자가 대문자여도 된다.  
+또한 `getPlaceOfBirth().getCity()` 와 같이 메서드 참조 형태로도 사용할 수 있다.
+
+배열과 리스트는 브라켓으로 표현할 수 있다.  
+
+```java
+ExpressionParser parser = new SpelExpressionParser();
+EvaluationContext context = SimpleEvaluationContext.forReadOnlyDataBinding().build();
+
+// Inventions 배열
+
+// "Induction motor"로 평가
+String invention = parser.parseExpression("inventions[3]").getValue(
+        context, tesla, String.class);
+
+// Members 리스트
+
+// "Nikola Tesla"로 평가
+String name = parser.parseExpression("members[0].name").getValue(
+        context, ieee, String.class);
+
+// 리스트와 배열 탐색
+// "Wireless communication"으로 평가
+String invention = parser.parseExpression("members[0].inventions[6]").getValue(
+        context, ieee, String.class);
+```
+
+맵에서는 특별한 문자열 키를 넣어서 표현할 수 있다.  
+
+```java
+// Officer's Dictionary
+
+Inventor pupin = parser.parseExpression("officers['president']").getValue(
+        societyContext, Inventor.class);
+
+// "Idvor"로 평가
+String city = parser.parseExpression("officers['president'].placeOfBirth.city").getValue(
+        societyContext, String.class);
+
+// 값 세팅
+parser.parseExpression("officers['advisors'][0].placeOfBirth.country").setValue(
+        societyContext, "Croatia");
+```
+
+### 인라인 리스트
+
+`{}` 를 사용하여 리스트를 직접적으로 표현할 수 있다.  
+
+```java
+// 4개의 숫자를 가진 리스트로 평가
+List numbers = (List) parser.parseExpression("{1,2,3,4}").getValue(context);
+
+List listOfLists = (List) parser.parseExpression("{{'a','b'},{'x','y'}}").getValue(context);
+```
+
+`{}` 는 그 자체로 빈 리스트를 의미한다.  
+
+### 인라인 맵
+
+`{key:value}` 형태로 맵을 표현할 수 있다.  
+
+```java
+// 2개의 요소를 가진 맵으로 평가
+Map inventorInfo = (Map) parser.parseExpression("{name:'Nikola',dob:'10-July-1856'}").getValue(context);
+
+Map mapOfMaps = (Map) parser.parseExpression("{name:{first:'Nikola',last:'Tesla'},dob:{day:10,month:'July',year:1856}}").getValue(context);
+```
+
+`{:}` 는 그 자체로 빈 맵을 의미한다.  
+
+### 배열 생성
+
+친숙한 자바 문법으로 배열을 생성할 수 있다.  
+
+```java
+int[] numbers1 = (int[]) parser.parseExpression("new int[4]").getValue(context);
+
+// 초기값을 포함한 배열
+int[] numbers2 = (int[]) parser.parseExpression("new int[]{1,2,3}").getValue(context);
+
+// 다중 배열
+int[][] numbers3 = (int[][]) parser.parseExpression("new int[4][5]").getValue(context);
+```
+
+다중 배열의 경우에는 초기값을 선언할 수 없다.  
+
+### 메서드
+
+다음과 같이 메서드를 호출할 수도 있다.  
+
+```java
+// 문자열 리터럴, "bc"로 평가
+String bc = parser.parseExpression("'abc'.substring(1, 3)").getValue(String.class);
+
+// true로 평가
+boolean isMember = parser.parseExpression("isMember('Mihajlo Pupin')").getValue(
+        societyContext, Boolean.class);
+```
+
+### 연산자
+
+관계 연산자도 지원이 된다.  
+
+```java
+// true로 평가
+boolean trueValue = parser.parseExpression("2 == 2").getValue(Boolean.class);
+
+// false로 평가
+boolean falseValue = parser.parseExpression("2 < -5.0").getValue(Boolean.class);
+
+// true로 평가
+boolean trueValue = parser.parseExpression("'black' < 'block'").getValue(Boolean.class);
+```
+
+> null과의 비교 시 null은 0이 아니라 없는 값으로 비교된다.  
+null은 그 어떤 값보다 작은 값으로 평가된다. (`X > null` 은 항상 true, `X < null` 은 항상 false)
+
+SpEL은 `instanceof` 와 `matches` 도 지원한다.  
+
+```java
+// false로 평가
+boolean falseValue = parser.parseExpression(
+        "'xyz' instanceof T(Integer)").getValue(Boolean.class);
+
+// true로 평가
+boolean trueValue = parser.parseExpression(
+        "'5.00' matches '^-?\\d+(\\.\\d{2})?$'").getValue(Boolean.class);
+
+// false로 평가
+boolean falseValue = parser.parseExpression(
+        "'5.0067' matches '^-?\\d+(\\.\\d{2})?$'").getValue(Boolean.class);
+```
+
+> 원시 타입은 그 즉시 래퍼 타입으로 박싱된다.  
+`1 instanceof T(int)` 는 false로 평가되고, `1 instanceof T(Integer)` 는 true로 평가된다.
+
+각 심볼릭 연산자는 영문 표현으로도 작용한다.  
+
+- `lt` (`<`)
+- `gt` (`>`)
+- `le` (`≤`)
+- `ge` (`≥`)
+- `eq` (`==`)
+- `ne` (`≠`)
+- `div` (`/`)
+- `mod` (`%`)
+- `not` (`!`)
+
+논리 연산자도 지원한다.  
+
+- `and` (`&&`)
+- `or` (`!!`)
+- `not` (`!`)
+
+```java
+// -- AND --
+
+// false로 평가
+boolean falseValue = parser.parseExpression("true and false").getValue(Boolean.class);
+
+// true로 평가
+String expression = "isMember('Nikola Tesla') and isMember('Mihajlo Pupin')";
+boolean trueValue = parser.parseExpression(expression).getValue(societyContext, Boolean.class);
+
+// -- OR --
+
+// true로 평가
+boolean trueValue = parser.parseExpression("true or false").getValue(Boolean.class);
+
+// true로 평가
+String expression = "isMember('Nikola Tesla') or isMember('Albert Einstein')";
+boolean trueValue = parser.parseExpression(expression).getValue(societyContext, Boolean.class);
+
+// -- NOT --
+
+// false로 평가
+boolean falseValue = parser.parseExpression("!true").getValue(Boolean.class);
+
+// -- AND and NOT --
+String expression = "isMember('Nikola Tesla') and !isMember('Mihajlo Pupin')";
+boolean falseValue = parser.parseExpression(expression).getValue(societyContext, Boolean.class);
+```
+
+수식 연산도 다음과 같이 지원한다.  
+
+```java
+// 덧셈
+int two = parser.parseExpression("1 + 1").getValue(Integer.class);  // 2
+
+String testString = parser.parseExpression(
+        "'test' + ' ' + 'string'").getValue(String.class);  // 'test string'
+
+// 뺄셈
+int four = parser.parseExpression("1 - -3").getValue(Integer.class);  // 4
+
+double d = parser.parseExpression("1000.00 - 1e4").getValue(Double.class);  // -9000
+
+// 곱셈
+int six = parser.parseExpression("-2 * -3").getValue(Integer.class);  // 6
+
+double twentyFour = parser.parseExpression("2.0 * 3e0 * 4").getValue(Double.class);  // 24.0
+
+// 나눗셈
+int minusTwo = parser.parseExpression("6 / -3").getValue(Integer.class);  // -2
+
+double one = parser.parseExpression("8.0 / 4e0 / 2").getValue(Double.class);  // 1.0
+
+// mod 연산
+int three = parser.parseExpression("7 % 4").getValue(Integer.class);  // 3
+
+int one = parser.parseExpression("8 / 5 % 2").getValue(Integer.class);  // 1
+
+// 연산자 우선순위
+int minusTwentyOne = parser.parseExpression("1+2-3*8").getValue(Integer.class);  // -21
+```
+
+할당 연산자는 `=` 이다.  
+이는 일반적으로 `setValue()` 호출 내에서 수행되지만 `getValue()` 호출 내에서도 수행될 수 있다.  
+
+```java
+Inventor inventor = new Inventor();
+EvaluationContext context = SimpleEvaluationContext.forReadWriteDataBinding().build();
+
+parser.parseExpression("name").setValue(context, inventor, "Aleksandar Seovic");
+
+// 대안
+String aleks = parser.parseExpression(
+        "name = 'Aleksandar Seovic'").getValue(context, inventor, String.class);
+```
+
+### 타입
+
+특별히 `java.lang.Class` 의 인스턴스인 `T` 연산자를 사용할 수 있다.  
+정적 메서드는 이 연산자를 사용해서도 호출할 수 있다.  
+
+```java
+Class dateClass = parser.parseExpression("T(java.util.Date)").getValue(Class.class);
+
+Class stringClass = parser.parseExpression("T(String)").getValue(Class.class);
+
+boolean trueValue = parser.parseExpression(
+        "T(java.math.RoundingMode).CEILING < T(java.math.RoundingMode).FLOOR")
+        .getValue(Boolean.class);
+```
+
+### 생성자
+
+`new` 연산자를 사용하여 생성자를 호출할 수 있다.  
+
+```java
+Inventor einstein = p.parseExpression(
+        "new org.spring.samples.spel.inventor.Inventor('Albert Einstein', 'German')")
+        .getValue(Inventor.class);
+
+// 리스트의 add() 메서드를 호출하면서 Inventor 인스턴스 생성
+p.parseExpression(
+        "Members.add(new org.spring.samples.spel.inventor.Inventor(
+            'Albert Einstein', 'German'))").getValue(societyContext);
+```
