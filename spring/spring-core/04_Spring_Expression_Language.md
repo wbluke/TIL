@@ -454,3 +454,193 @@ p.parseExpression(
         "Members.add(new org.spring.samples.spel.inventor.Inventor(
             'Albert Einstein', 'German'))").getValue(societyContext);
 ```
+
+### 변수
+
+표현식에서 `#변수이름` 과 같은 형식으로 변수를 참조할 수 있다.  
+변수는 EvaluationContext 구현체에서 setVariable() 메서드로 지정할 수 있다.  
+
+> 유효한 변수 이름은 영문자, 숫자, 언더바(_), 달러 표시($)의 조합으로 구성해야 한다.
+
+```java
+Inventor tesla = new Inventor("Nikola Tesla", "Serbian");
+
+EvaluationContext context = SimpleEvaluationContext.forReadWriteDataBinding().build();
+context.setVariable("newName", "Mike Tesla");
+
+parser.parseExpression("name = #newName").getValue(context, tesla);
+System.out.println(tesla.getName())  // "Mike Tesla"
+```
+
+`#this` 변수는 항상 현재 평가하고 있는 객체를 참조한다.  
+`#root` 변수는 항상 루트 컨텍스트 객체를 참조한다.  
+`#this` 가 평가되는 컴포넌트에 따라 항상 변할 수 있는 반면에, `#root` 는 항상 루트 객체이다.  
+
+```java
+// 정수 배열 생성
+List<Integer> primes = new ArrayList<Integer>();
+primes.addAll(Arrays.asList(2,3,5,7,11,13,17));
+
+// 파서 생성 및 정수 배열로 primes 변수 설정
+ExpressionParser parser = new SpelExpressionParser();
+EvaluationContext context = SimpleEvaluationContext.forReadOnlyDataAccess();
+context.setVariable("primes", primes);
+
+// 10보다 큰 모든 소수
+// [11, 13, 17]로 평가
+List<Integer> primesGreaterThanTen = (List<Integer>) parser.parseExpression(
+        "#primes.?[#this>10]").getValue(context);
+```
+
+### 함수
+
+표현식에서 사용자가 만든 함수를 등록하여 SpEL을 확장할 수 있다.  
+해당 함수는 EvaluationContext를 통해 등록된다.  
+
+```java
+ExpressionParser parser = new SpelExpressionParser();
+
+EvaluationContext context = SimpleEvaluationContext.forReadOnlyDataBinding().build();
+context.setVariable("reverseString",
+        StringUtils.class.getDeclaredMethod("reverseString", String.class)); // 메서드 등록
+
+String helloWorldReversed = parser.parseExpression(
+        "#reverseString('hello')").getValue(context, String.class);
+```
+
+### 빈 참조
+
+평가 컨텍스트에 빈 리졸버를 구성하면, `@` 표기를 이용해 표현식에서 빈을 참조할 수 있다.  
+
+```java
+ExpressionParser parser = new SpelExpressionParser();
+StandardEvaluationContext context = new StandardEvaluationContext();
+context.setBeanResolver(new MyBeanResolver());
+
+// 평가 시 MyBeanResolver에서 resolve(context, "something") 호출
+Object bean = parser.parseExpression("@something").getValue(context);
+```
+
+팩토리 빈 자체에 접근하고 싶다면, `&` 표기를 사용하면 된다.  
+
+```java
+ExpressionParser parser = new SpelExpressionParser();
+StandardEvaluationContext context = new StandardEvaluationContext();
+context.setBeanResolver(new MyBeanResolver());
+
+// 평가 시 MyBeanResolver에서 resolve(context, "&foo") 호출
+Object bean = parser.parseExpression("&foo").getValue(context);
+```
+
+### 삼항 연산자
+
+표현식 내에서 if-then-else 조건식을 구성하기 위해 삼항 연산자를 사용할 수 있다.  
+
+```java
+String falseString = parser.parseExpression(
+        "false ? 'trueExp' : 'falseExp'").getValue(String.class);
+```
+
+### 엘비스 연산자
+
+엘비스 연산자는 groovy 언어에서 사용되는 삼항 연산자의 축약 버전이다.  
+다음과 같이 사용할 수 있다.  
+
+```java
+ExpressionParser parser = new SpelExpressionParser();
+
+String name = parser.parseExpression("name?:'Unknown'").getValue(new Inventor(), String.class);
+System.out.println(name);  // 'Unknown'
+```
+
+> 이런 엘비스 연산자는 표현식에서 기본값을 설정하는 데에 사용할 수 있다.  
+`@Value("#{systemProperties['pop3.port'] ?: 25}")`
+
+### 안전한 탐색 연산자
+
+안전한 탐색 연산자는 groovy 언어에서 왔고, NPE를 피하기 위한 연산자이다.  
+전형적으로, 객체를 참조하면 메서드와 속성 값에 접근하기 위해 null이 아님을 보장해야만 했다.  
+이를 피하기 위해, 안전한 탐색 연산자는 예외를 던지는 대신 null을 반환한다.  
+
+```java
+ExpressionParser parser = new SpelExpressionParser();
+EvaluationContext context = SimpleEvaluationContext.forReadOnlyDataBinding().build();
+
+Inventor tesla = new Inventor("Nikola Tesla", "Serbian");
+tesla.setPlaceOfBirth(new PlaceOfBirth("Smiljan"));
+
+String city = parser.parseExpression("placeOfBirth?.city").getValue(context, tesla, String.class);
+System.out.println(city);  // Smiljan
+
+tesla.setPlaceOfBirth(null);
+city = parser.parseExpression("placeOfBirth?.city").getValue(context, tesla, String.class);
+System.out.println(city);  // null - NPE를 던지지 않는다!
+```
+
+### 컬렉션 선택자
+
+선택자는 소스 컬렉션의 속성을 필터링하여 다른 컬렉션으로 변환할 때 사용하는 아주 강력한 표현 언어이다.  
+
+선택자는 `.?[선택 표현식]` 형태로 사용한다.  
+이는 기존 컬렉션의 특정 부분집합을 필터링하여 새로운 컬렉션을 반환한다.  
+
+```java
+List<Inventor> list = (List<Inventor>) parser.parseExpression(
+        "members.?[nationality == 'Serbian']").getValue(societyContext);
+```
+
+선택자는 배열과 `java.lang.Iterable` , 혹은 `java.util.Map` 을 구현한 어떤 것이든 지원한다.  
+
+```java
+Map newMap = parser.parseExpression("map.?[value<27]").getValue();
+```
+
+선택한 모든 요소를 반환하는 것 외에도 첫 번째 또는 마지막 요소만 선택할 수 있다.  
+선택 항목과 일치하는 첫 번째 요소를 얻으려면 `.^[선택 표현식]` , 마지막으로 일치하는 항목을 얻으려면 `.$[선택 표현식]` 을 사용하면 된다.  
+
+### 컬렉션 프로젝션
+
+프로젝션은 컬렉션이 하위 표현식의 평가를 하도록 하고, 결과는 새 컬렉션이 나오도록 한다.  
+구문은 `.![프로젝션 표현식]` 이다.  
+
+```java
+// returns ['Smiljan', 'Idvor' ]
+List placesOfBirth = (List)parser.parseExpression("members.![placeOfBirth.city]");
+```
+
+프로젝션은 배열과 `java.lang.Iterable` , 혹은 `java.util.Map` 을 구현한 어떤 것이든 지원한다.  
+
+### 표현 템플릿
+
+표현 템플릿을 사용하면 리터럴 텍스트를 하나 이상의 평가 블록과 조합할 수 있다.  
+각 평가 블록은 정의할 수 있는 접두사 및 접미사로 표현한다.  
+보통은 다음과 같이 `#{}` 로 표현하는 것이다.  
+
+```java
+String randomPhrase = parser.parseExpression(
+        "random number is #{T(java.lang.Math).random()}",
+        new TemplateParserContext()).getValue(String.class);
+
+// evaluates to "random number is 0.7038186818312008"
+```
+
+문자열은 리터럴 텍스트 'random number is'를 `#{}` 구분 기호로 평가한 결과와 연결하여 평가된다.  
+parseExpression()의 두 번째 파라미터는 ParserContext 유형인데, 이 인터페이스는 표현 템플릿 기능을 지원하기 위해 표현식이 분석되는 방식에 영향을 미치는 데 사용된다.  
+TemplateParserContext의 정의는 다음과 같다.  
+
+```java
+public class TemplateParserContext implements ParserContext {
+
+    public String getExpressionPrefix() {
+        return "#{";
+    }
+
+    public String getExpressionSuffix() {
+        return "}";
+    }
+
+    public boolean isTemplate() {
+        return true;
+    }
+}
+```
