@@ -152,3 +152,266 @@ public class CommonPointcuts {
 
 }
 ```
+
+### 어드바이스 선언
+
+어드바이스는 포인트컷 표현식과 관련이 있고, 포인트컷에 의해 매칭되는 메서드 실행 전, 후, 혹은 전후 시점에 동작한다.  
+
+`@Before` 어노테이션을 통해 before 어드바이스를 선언할 수 있다.  
+
+```java
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+
+@Aspect
+public class BeforeExample {
+
+    @Before("com.xyz.myapp.CommonPointcuts.dataAccessOperation()")
+    public void doAccessCheck() {
+        // ...
+    }
+}
+```
+
+in-place 포인트컷 표현식을 사용한다면 위 예제는 다음과 같이 사용할 수 있을 것이다.  
+
+```java
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+
+@Aspect
+public class BeforeExample {
+
+    @Before("execution(* com.xyz.myapp.dao.*.*(..))")
+    public void doAccessCheck() {
+        // ...
+    }
+}
+```
+
+After returning 어드바이스는 메서드 실행부가 일반적인 반환을 했을 때 수행된다.  
+`@AfterReturning` 어노테이션을 사용해서 선언할 수 있다.  
+
+```java
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.AfterReturning;
+
+@Aspect
+public class AfterReturningExample {
+
+    @AfterReturning("com.xyz.myapp.CommonPointcuts.dataAccessOperation()")
+    public void doAccessCheck() {
+        // ...
+    }
+}
+```
+
+때때로 반환되는 실제 값에 접근해야 할 경우가 있다.  
+`@AfterReturning` 에 다음과 같이 바인딩해서 접근할 수 있다.  
+
+```java
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.AfterReturning;
+
+@Aspect
+public class AfterReturningExample {
+
+    @AfterReturning(
+        pointcut="com.xyz.myapp.CommonPointcuts.dataAccessOperation()",
+        returning="retVal")
+    public void doAccessCheck(Object retVal) {
+        // ...
+    }
+}
+```
+
+`returning` 속성에 사용된 이름은 반드시 어드바이스 메서드의 파라미터 이름과 동일해야만 한다.  
+메서드 실행부가 반환할 때, 반환값은 어드바이스 메서드의 인자로 넘어오게 된다.  
+`returning` 절은 또한 메서드 실행부의 반환값 타입만 가능하도록 매칭을 제한해야 한다.  
+(위 예제는 Object로, 모든 반환 값을 다 수용한다.)  
+
+After throwing 어드바이스는 매칭되는 메서드 실행부가 예외를 던진 경우 수행된다.  
+`@AfterThrowing` 어노테이션으로 선언할 수 있다.  
+
+```java
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.AfterThrowing;
+
+@Aspect
+public class AfterThrowingExample {
+
+    @AfterThrowing("com.xyz.myapp.CommonPointcuts.dataAccessOperation()")
+    public void doRecoveryActions() {
+        // ...
+    }
+}
+```
+
+종종 당신은 특정 예외 타입이 던져졌을 때 어드바이스가 수행되기를 원하기도 하고, 어드바이스 바디 안에 있는 던져진 예외에 접근하기를 원할 수도 있다.  
+`throwing` 속성으로 매칭을 제한하고 어드바이스 파라미터에 던져진 예외를 받을 수 있다.  
+
+```java
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.AfterThrowing;
+
+@Aspect
+public class AfterThrowingExample {
+
+    @AfterThrowing(
+        pointcut="com.xyz.myapp.CommonPointcuts.dataAccessOperation()",
+        throwing="ex")
+    public void doRecoveryActions(DataAccessException ex) {
+        // ...
+    }
+}
+```
+
+`throwing` 속성에 사용된 이름은 반드시 어드바이스 메서드의 파라미터 이름과 동일해야만 한다.  
+메서드 실행부가 예외를 던질 때, 예외는 어드바이스 메서드의 인자로 넘어오게 된다.  
+`throwing` 절은 또한 메서드 실행부가 던지는 예외 타입만 가능하도록 매칭을 제한해야 한다.  
+
+After (Finally) 어드바이스는 메서드 실행부가 끝날 때 수행된다.  
+`@After` 어노테이션을 사용해 선언된다.  
+After 어드바이스는 일반적인 종료와 예외 상황 모두 다룰 수 있도록 준비되어야 한다.  
+
+```java
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.After;
+
+@Aspect
+public class AfterFinallyExample {
+
+    @After("com.xyz.myapp.CommonPointcuts.dataAccessOperation()")
+    public void doReleaseLock() {
+        // ...
+    }
+}
+```
+
+어드바이스의 마지막 종류는 Around 어드바이스이다.  
+Around 어드바이스는 말 그대로 메서드 실행부 "전후"로 수행된다.  
+메서드 실행 전후에 작업을 수행하고 메서드가 실제로 실행되는 시기와 방법, 실행 여부를 결정할 수 있는 기회를 가졌다.  
+Around 어드바이스는 메서드 실행부 전후로 스레드 안전한 방식으로 상태를 가져야할 때 많이 사용된다.  
+(예를 들면, 스탑워치 같은.)  
+
+Around 어드바이스는 `@Around` 어노테이션을 통해 선언된다.  
+어드바이스 메서드의 첫 번째 인자는 `ProceedingJoinPoint` 이다.  
+어드바이스 바디에서, ProceedingJoinPoint의 `proceed()` 메서드를 호출하여 조인 포인트 메서드를 실행할 수 있다.  
+
+```java
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.ProceedingJoinPoint;
+
+@Aspect
+public class AroundExample {
+
+    @Around("com.xyz.myapp.CommonPointcuts.businessService()")
+    public Object doBasicProfiling(ProceedingJoinPoint pjp) throws Throwable {
+        // start stopwatch
+        Object retVal = pjp.proceed();
+        // stop stopwatch
+        return retVal;
+    }
+}
+```
+
+Around 어드바이스의 반환 값은 호출 메서드의 반환 값이다.  
+proceed() 메서드는 바디에서 한 번, 혹은 여러 번 호출되거나 전혀 호출되지 않을 수 있다.  
+
+모든 어드바이스 메서드는 첫 번째 파라미터로 `org.aspectj.lang.JoinPoint` 타입을 받을 수 있다.  
+JoinPoint 인터페이스는 다음과 같은 유용한 메서드를 제공한다.  
+
+- `getArgs()`
+    - 메서드의 인자 반환
+- `getThis()`
+    - 프록시 객체 반환
+- `getTarget()`
+    - 타깃 객체 반환
+- `getSignature()`
+    - 어드바이스된 메서드의 description 반환
+- `toString()`
+    - 어드바이스된 메서드의 유용한 description 출력
+
+메서드의 인자 값을 어드바이스 바디에서 사용 가능하게 하려면, `args` 를 사용할 수 있다.  
+args 표현식에 지정한 타입 이름을 어드바이스의 파라미터로 받을 수 있다.  
+
+```java
+@Before("com.xyz.myapp.CommonPointcuts.dataAccessOperation() && args(account,..)")
+public void validateAccount(Account account) {
+    // ...
+}
+```
+
+포인트컷 표현식의 `args(account,..)` 부분은 두 가지 역할을 한다.  
+첫 번째는 메서드가 하나 이상의 파라미터를 사용하고 해당 파라미터가 Account의 인스턴스인 메서드 실행부로만 매칭을 제한하는 것이다.  
+두 번째는 실제 Account 객체를 account 파라미터를 통해 어드바이스에서 사용할 수 있도록 하는 것이다.  
+
+또 다른 방법은 조인 포인트를 매칭할 때 Account 객체 값을 "제공"하는 포인트컷을 선언한 다음 어드바이스에서 해당 포인트컷을 참조하는 방법이 있다.  
+
+```java
+@Pointcut("com.xyz.myapp.CommonPointcuts.dataAccessOperation() && args(account,..)")
+private void accountDataAccessOperation(Account account) {}
+
+@Before("accountDataAccessOperation(account)")
+public void validateAccount(Account account) {
+    // ...
+}
+```
+
+프록시 객체(`this`), 타깃 객체(`target`), 어노테이션들(`@within`, `@target`, `@annotation`, `@args`)도 마찬가지로 비슷하게 사용될 수 있다.  
+다음은 어노테이션에 대한 예제이다.  
+
+```java
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
+public @interface Auditable {
+    AuditCode value();
+}
+
+@Before("com.xyz.lib.Pointcuts.anyPublicMethod() && @annotation(auditable)")
+public void audit(Auditable auditable) {
+    AuditCode code = auditable.value();
+    // ...
+}
+```
+
+스프링 AOP는 클래스와 메서드 파라미터에 있는 제네릭도 다룰 수 있다.  
+
+```java
+public interface Sample<T> {
+    void sampleGenericMethod(T param);
+    void sampleGenericCollectionMethod(Collection<T> param);
+}
+
+@Before("execution(* ..Sample+.sampleGenericMethod(*)) && args(param)")
+public void beforeSampleMethod(MyType param) {
+    // Advice implementation
+}
+```
+
+단, 제네릭 컬렉션은 다음과 같은 형태로 사용할 수 없다.  
+
+```java
+@Before("execution(* ..Sample+.sampleGenericCollectionMethod(*)) && args(param)")
+public void beforeSampleMethod(Collection<MyType> param) {
+    // Advice implementation
+}
+```
+
+이 작업을 수행하려면 컬렉션의 모든 요소를 검사해야 한다.  
+이는 일반적으로 null을 처리하는 방법도 결정할 수 없기 때문에 합리적이지 않다.  
+이와 유사한 결과를 얻으려면 `Collection<?>` 에 파라미터를 입력하고 수동으로 검증해야 한다.  
+
+같은 조인 포인트에 여러 개의 어드바이스가 수행되기를 원하면 어떻게 해야 할까?  
+스프링 AOP는 AspectJ와 동일한 우선순위 규칙을 따라 어드바이스 실행 순서를 결정한다.  
+가장 높은 우선순위의 어드바이스가 "들어오면서" 가장 먼저 실행되고, 반대로 "나갈 때는" 가장 나중에 실행된다.  
+(즉, 두 개의 After 어드바이스가 있을 경우 우선순위가 가장 높은 어드바이스가 두 번째로 실행된다.)  
+
+다른 애스펙트로 정의한 두 어드바이스가 하나의 조인 포인트에서 실행되어야 할 때, 특별히 지정하지 않는 한 실행 순서는 정의되지 않는다.  
+당신은 우선순위를 정해서 실행 순서를 제어할 수 있다.  
+일반적인 스프링에서와 같이 `org.springframework.core.Ordered` 인터페이스를 구현하거나 `@Order` 어노테이션으로 순서를 지정할 수 있다.  
+두 애스펙트가 주어진 경우, Ordered.getOrder()에서 더 낮은 값을 반환하는 애스펙트가 더 높은 우선순위를 갖는다.  
+
+우선순위는 @Around, @Before, @After, @AfterReturning, @AfterThrowing 순으로 높다.  
+단, @After 어드바이스는 동일한 애스펙트에서 @AfterReturning 또는 @AfterThrowing 어드바이스 이후에 효과적으로 호출되며, @After에 대한 AspectJ의 "after finally 어드바이스" 의미를 따른다.
