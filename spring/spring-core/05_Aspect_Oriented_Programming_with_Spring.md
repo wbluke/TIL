@@ -76,3 +76,79 @@ AspectJ와 같은 스프링 AOP에서 모든 범위의 어드바이스 타입을
 ### @AspectJ 지원 허용
 
 ### Aspect 선언
+
+### 포인트컷 선언
+
+포인트컷은 관심사의 조인 포인트를 결정하고, 어드바이스가 언제 실행될지를 조절할 수 있게 한다.  
+스프링 AOP는 스프링 빈을 위한 메서드 실행 조인 포인트만을 지원하며, 그러므로 당신은 포인트컷이 스프링 빈에서 메서드 실행과 매칭된다고 생각할 수 있다.  
+포인트컷 선언은 두 가지로 나뉘는데, 이름과 모든 파라미터를 포함하는 시그니처와 관심사가 있는 메서드 실행부를 결정하는 포인트컷 표현식이다.  
+AOP의 @AspectJ 어노테이션 스타일에 따르면, 포인트컷 시그니처는 표준 메서드 정의에 의해 제공되며, 포인트컷 표현식은 `@Pointcut` 어노테이션을 사용해서 표현된다.  
+(포인트컷 시그니처를 표현하는 메서드는 반드시 void 반환을 해야 한다.)  
+
+예시는 다음과 같다.  
+
+```java
+@Pointcut("execution(* transfer(..))") // 포인트컷 표현식
+private void anyOldTransfer() {} // 포인트컷 시그니처
+```
+
+`@Pointcut` 어노테이션에 의한 포인트컷 표현식은 표준 AspectJ 포인트컷 표현식이다.  
+
+스프링 AOP는 다음 AspectJ 포인트컷 지정자를 지원한다.  
+
+- `execution`
+    - 메서드 실행 조인 포인트를 매칭한다. 스프링 AOP에서 가장 우선되는 지정자이다.
+- `within`
+- `this`
+- `target`
+- `args`
+- `@target`
+- `@args`
+- `@within`
+- `@annotation`
+
+스프링 AOP는 또한 `bean` 이라는 추가 지정자를 지원한다.  
+이 지정자를 사용하면 특정 이름의 스프링 빈 또는 스프링 빈 세트(와일드카드 사용 시)에 대한 조인 포인트 일치를 제한할 수 있다.  
+
+당신은 `&&`, `||`, `!` 를 사용하여 여러 포인트컷 표현식을 조합할 수 있다.  
+
+```java
+@Pointcut("execution(public * *(..))") // public 메서드
+private void anyPublicOperation() {} 
+
+@Pointcut("within(com.xyz.myapp.trading..*)") // trading 모듈 내의 메서드
+private void inTrading() {} 
+
+@Pointcut("anyPublicOperation() && inTrading()") // trading 모듈 내의 public 메서드
+private void tradingOperation() {}
+```
+
+엔터프라이즈급 애플리케이션을 설계하다보면, 개발자들은 특정 연산 집합이나 애플리케이션 모듈을 몇 가지 애스펙트로 관리하기를 원한다.  
+이러한 목적을 위해 `CommonPointcuts` 애스펙트를 정의해서 일반적인 포인트컷 표현식을 사용하기를 원한다.  
+
+```java
+package com.xyz.myapp;
+
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Pointcut;
+
+@Aspect
+public class CommonPointcuts {
+
+    @Pointcut("within(com.xyz.myapp.web..*)")
+    public void inWebLayer() {}
+
+    @Pointcut("within(com.xyz.myapp.service..*)")
+    public void inServiceLayer() {}
+
+    @Pointcut("within(com.xyz.myapp.dao..*)")
+    public void inDataAccessLayer() {}
+
+    @Pointcut("execution(* com.xyz.myapp..service.*.*(..))")
+    public void businessService() {}
+
+    @Pointcut("execution(* com.xyz.myapp.dao.*.*(..))")
+    public void dataAccessOperation() {}
+
+}
+```
