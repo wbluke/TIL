@@ -414,4 +414,32 @@ public void beforeSampleMethod(Collection<MyType> param) {
 두 애스펙트가 주어진 경우, Ordered.getOrder()에서 더 낮은 값을 반환하는 애스펙트가 더 높은 우선순위를 갖는다.  
 
 우선순위는 @Around, @Before, @After, @AfterReturning, @AfterThrowing 순으로 높다.  
-단, @After 어드바이스는 동일한 애스펙트에서 @AfterReturning 또는 @AfterThrowing 어드바이스 이후에 효과적으로 호출되며, @After에 대한 AspectJ의 "after finally 어드바이스" 의미를 따른다.
+단, @After 어드바이스는 동일한 애스펙트에서 @AfterReturning 또는 @AfterThrowing 어드바이스 이후에 효과적으로 호출되며, @After에 대한 AspectJ의 "after finally 어드바이스" 의미를 따른다.  
+
+### Introductions
+
+인트로덕션을 통해 애스펙트는 어드바이스된 객체가 주어진 인터페이스를 구현한다고 선언하며, 해당 객체를 대신하여 인터페이스의 구현체를 제공할 수 있다.  
+
+이를 `@DeclareParents` 어노테이션을 통해 만들 수 있다.  
+이 어노테이션은 매칭 타입이 새로운 부모를 가지도록 선언하는 데 사용된다.  
+예를 들어 UsageTracked라는 인터페이스와 구현체인 DefaultUsageTracked가 있을 때, 다음 애스펙트는 서비스 인터페이스의 모든 구현체가 UsageTracked 인터페이스도 구현한다고 선언한다.  
+
+```java
+@Aspect
+public class UsageTracking {
+
+    @DeclareParents(value="com.xzy.myapp.service.*+", defaultImpl=DefaultUsageTracked.class)
+    public static UsageTracked mixin;
+
+    @Before("com.xyz.myapp.CommonPointcuts.businessService() && this(usageTracked)")
+    public void recordUsage(UsageTracked usageTracked) {
+        usageTracked.incrementUseCount();
+    }
+
+}
+```
+
+구현될 인터페이스는 어노테이션 필드의 타입에 따라 결정된다.  
+`@DeclareParents` 어노테이션의 value 속성은 AspectJ 타입 패턴이다.  
+일치하는 타입의 빈은 UsageTracked 인터페이스를 구현하게 된다.  
+위 예제의 before 어드바이스에서 서비스 빈은 UsageTracked 인터페이스의 구현체로 직접 사용될 수 있다.
