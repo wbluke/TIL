@@ -442,4 +442,132 @@ public class UsageTracking {
 구현될 인터페이스는 어노테이션 필드의 타입에 따라 결정된다.  
 `@DeclareParents` 어노테이션의 value 속성은 AspectJ 타입 패턴이다.  
 일치하는 타입의 빈은 UsageTracked 인터페이스를 구현하게 된다.  
-위 예제의 before 어드바이스에서 서비스 빈은 UsageTracked 인터페이스의 구현체로 직접 사용될 수 있다.
+위 예제의 before 어드바이스에서 서비스 빈은 UsageTracked 인터페이스의 구현체로 직접 사용될 수 있다.  
+
+## 프록시 매커니즘
+
+스프링 AOP는 JDK 다이나믹 프록시 또는 CGLIB를 사용하여 타깃 객체에 대한 프록시를 생성한다.  
+JDK 다이나믹 프록시는 JDK에 내장되어 있는 반면 CGLIB는 일반적인 오픈 소스 정의 라이브러리이다. (`spring-core` 에서 재패키징됨)  
+
+프록시 타깃 객체가 하나 이상의 인터페이스를 구현하는 경우 JDK 다이나믹 프록시 방식이 사용된다.  
+타깃 타입에 의해 구현된 모든 인터페이스는 프록싱된다.  
+만약 타깃이 인터페이스를 구현하지 않았다면 CGLIB 프록시가 생성된다.  
+
+### AOP 프록시 이해하기
+
+스프링 AOP는 프록시 기반이다.  
+나만의 애스펙트를 만들거나 스프링이 지원하는 스프링 AOP 기반의 애스펙트를 사용하기 전에 반드시 이 말이 무슨 말인지를 이해하고 있어야만 한다.  
+
+다음과 같이 매우 간단한 객체가 있다고 하자.  
+
+```java
+public class SimplePojo implements Pojo {
+
+    public void foo() {
+        // 아래 메서드 호출은 'this' 참조를 통해 바로 불려진다.
+        this.bar();
+    }
+
+    public void bar() {
+        // some logic...
+    }
+}
+```
+
+객체 참조값에서 메서드를 호출하면 메서드가 해당 객체 참조값에서 직접 호출된다.  
+
+```java
+public class Main {
+
+    public static void main(String[] args) {
+        Pojo pojo = new SimplePojo();
+        // 이 메서드는 'pojo' 레퍼런스를 호출한다.
+        pojo.foo();
+    }
+}
+```
+
+클라이언트 코드에 있는 참조가 프록시인 경우 상황이 약간 달라진다.  
+
+![](./images/aop_proxy.png)  
+
+![https://s3-us-west-2.amazonaws.com/secure.notion-static.com/9432f960-c796-43b4-b558-b7d4680a7bce/Untitled.png](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/9432f960-c796-43b4-b558-b7d4680a7bce/Untitled.png)
+
+```java
+public class Main {
+
+    public static void main(String[] args) {
+        ProxyFactory factory = new ProxyFactory(new SimplePojo());
+        factory.addInterface(Pojo.class);
+        factory.addAdvice(new RetryAdvice());
+
+        Pojo pojo = (Pojo) factory.getProxy();
+        // 이 메서드는 프록시를 호출한다!
+        pojo.foo();
+    }
+}
+```
+
+여기서의 핵심은 Main 클래스의 main() 메서드 내부에 있는 클라이언트 코드에 프록시 참조가 있다는 것이다.  
+이는 해당 객체 참조에 대한 메서드 호출이 프록시에 대한 호출임을 의미하고, 결과적으로 프록시는 특정 메서드 호출과 관련된 모든 인터셉터에 기능을 위임할 수 있다.  
+그러나 this.bar() 또는 this.foo()와 같이 내부의 자체 메서드를 수행하게 되면, 메서드 호출이 타깃 객체에 의해 일어나기 때문에 프록시가 아니게 된다.  
+이것은 중요한 의미를 가지고 있는데, 이는 자체적인 호출로 인해서는 메소드 호출과 관련된 어드바이스가 실행 기회를 얻지 못한다는 것을 의미한다.  
+
+이를 해결하기 위한 가장 좋은 접근은 자기자신의 호출을 하지 않도록 리팩토링하는 것이다.  
+이것이 가장 좋은 해결책이고, 침투적이지 않은 방식이다.  
+그 다음 선택으로는 절대적으로 끔찍한 방법인데, 다음 예제외 같이 클래스 내의 로직을 스프링 AOP에 완전히 묶어버릴 수 있다.  
+
+```java
+public class SimplePojo implements Pojo {
+
+    public void foo() {
+        // 끔찍한 일이다.
+        ((Pojo) AopContext.currentProxy()).bar();
+    }
+
+    public void bar() {
+        // some logic...
+    }
+}
+```
+
+이 코드는 당신의 코드와 스프링 AOP의 코드를 완전히 커플링하여 클래스 자체가 스프링 AOP를 사용하고 있다는 사실을 완전히 인식하게 한다.  
+심지어 다음과 같은 추가 설정이 필요하다.  
+
+```java
+public class Main {
+
+    public static void main(String[] args) {
+        ProxyFactory factory = new ProxyFactory(new SimplePojo());
+        factory.addInterface(Pojo.class);
+        factory.addAdvice(new RetryAdvice());
+        factory.setExposeProxy(true);
+
+        Pojo pojo = (Pojo) factory.getProxy();
+        // this is a method call on the proxy!
+        pojo.foo();
+    }
+}
+```
+
+마지막으로 AspectJ는 프록시 기반 AOP 프레임워크가 아니기 때문에 이러한 호출 문제가 없다는 점을 기억해야 한다.  
+
+## @AspectJ 프록시의 프로그래밍 방식 생성
+
+`org.springframework.aop.aspectj.annotation.AspectJProxyFactory` 클래스를 사용하여 하나 이상의 @AspectJ 애스펙트에서 어드바이스되는 타깃 객체에 대한 프록시를 생성할 수 있다.  
+예시는 다음과 같다.  
+
+```java
+// 타깃 객체 프록시를 생성할 수 있는 팩토리 생성
+AspectJProxyFactory factory = new AspectJProxyFactory(targetObject);
+
+// 애스펙트 추가, 클래스는 @AspectJ 애스펙트일 것
+// 여러 애스펙트가 필요한 경우 반복 호출 가능
+factory.addAspect(SecurityManager.class);
+
+// 애스펙트 인스턴스도 추가 가능, 제공 객체의 타입은 @AspectJ 애스펙트일 것
+factory.addAspect(usageTracker);
+
+// 프록시 객체 얻기
+MyInterfaceType proxy = factory.getProxy();
+```
