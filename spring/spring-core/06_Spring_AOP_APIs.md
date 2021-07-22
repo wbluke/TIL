@@ -137,4 +137,26 @@ public interface AfterReturningAdvice extends Advice {
 }
 ```
 
-after returning 어드바이스는 반환 값(수정 불가), 호출된 메서드, 메서드 인자 및 타깃 객체에 접근할 수 있다.
+after returning 어드바이스는 반환 값(수정 불가), 호출된 메서드, 메서드 인자 및 타깃 객체에 접근할 수 있다.  
+
+## AOP 프록시를 생성하기 위한 ProxyFactoryBean 사용
+
+만약 당신이 비즈니스 객체들을 위해 스프링 IoC 컨테이너를 사용한다면, 당신은 스프링 AOP FactoryBean 구현체 중 하나를 사용하길 원할 것이다.  
+
+스프링에서 AOP 프록시를 생성하기 위한 가장 간단한 방법은 `org.springframework.aop.framework.ProxyFactoryBean` 을 사용하는 것이다.  
+이는 포인트것, 적용되는 어드바이스, 순서 등의 완전한 제어를 제공한다.  
+물론 이러한 제어가 필요하지 않은 경우에도 옵션이 존재한다.  
+
+### 기본
+
+다른 스프링 FactoryBean 구현체와 마찬가지로 ProxyFactoryBean은 간접적인 레벨을 도입한다.  
+foo라는 이름으로 ProxyFactoryBean을 정의하면 foo를 참조하는 객체는 ProxyFactoryBean 인스턴스 자체를 보지 않고, getObject() 메서드에 의해 생성된 객체를 바라보게 된다.  
+이 메서드는 타깃 객체를 래핑하는 AOP 프록시 객체를 만든다.  
+
+ProxyFactoryBean의 또 다른 중요한 장점은 어드바이스와 포인트컷이 IoC에 의해 관리된다는 것이다.  
+이는 매우 강력한 기능으로, 다른 AOP 프레임워크에서는 하기 힘든 특정 접근 방식을 가능하게 한다.  
+예를 들어, 어드바이스가 애플리케이션 객체를 참조할 수 있으며, DI의 이점을 누릴 수 있다.  
+
+### 자바빈 프로퍼티
+
+### JDK와 CGLIB 기반 프록시
